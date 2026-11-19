@@ -1,0 +1,13 @@
+# Tài liệu PDF: bỏ qua tất cả, trừ báo cáo cuối kỳ
+tdke04.pdf
+*.pdf
+!docs/Report.pdf
+
+# Output tạm
+*.out
+output/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Lưu ý: KHÔNG bỏ qua Manifest.toml (cần để tái lập môi trường)

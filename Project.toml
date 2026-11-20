@@ -1,0 +1,6 @@
+name = "FPClose"
+uuid = "ed19731d-d1e9-49f8-81da-2c607311ad57"
+version = "0.1.0"
+
+[compat]
+julia = "1.9"

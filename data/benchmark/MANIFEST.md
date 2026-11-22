@@ -148,7 +148,7 @@ comparing SHA-256.
 - `data/scalability/retail_p010..p100.txt`: nested Retail subsets (seed 2026, size `n*p//100`).
 - `data/synthetic/len05..len30.txt`: 6 correlated synthetic datasets (10,000 transactions, 500 items, seed 2026);
   statistics in `data/synthetic/synthetic_statistics.csv`.
-- SHA-256 and line counts: `results/derived_hashes.csv`. These files are not committed; regenerate them with `scripts/`.
+- SHA-256 and line counts: `data/results/derived_hashes.csv`. These files are not committed; regenerate them with `data/scripts/`.
 
 ## License and attribution
 

@@ -10,4 +10,24 @@ output/
 # Jupyter
 .ipynb_checkpoints/
 
-# Lưu ý: KHÔNG bỏ qua Manifest.toml (cần để tái lập môi trường)
+# Công cụ ngoài (SPMF): tải theo link trong README, không commit
+tools/
+*.jar
+
+# Output khi chạy thử
+out/
+out_*.txt
+
+# File sinh ra khi đo coverage / bộ nhớ của Julia
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+
+# Python / notebook
+__pycache__/
+.venv/
+
+# Hệ điều hành và editor
+Thumbs.db
+.DS_Store
+.vscode/

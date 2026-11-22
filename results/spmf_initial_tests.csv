@@ -1,0 +1,10 @@
+dataset,n_transactions,minsup_pct,minsup_count,n_closed_itemsets,metadata_lines,status,error
+chess,3196,90,2877,498,2,PASS,
+mushrooms,8416,20,1684,1169,2,PASS,
+retail,88162,1,882,159,2,PASS,
+T10I4D100K,100000,1,1000,385,2,PASS,
+accidents,340183,90,306165,31,2,PASS,
+connect,67557,95,64180,811,2,PASS,
+kosarak,990002,1,9901,383,2,PASS,
+pumsb_star,49046,70,34333,17,2,PASS,
+T40I10D100K,100000,5,5000,316,2,PASS,

@@ -1,6 +1,6 @@
 dataset,n_transactions,n_levels,min_minsup_pct,max_minsup_pct,max_closed_itemsets
 chess,3196,7,60.0,90.0,98392
-mushrooms,8416,7,2.0,20.0,31416
+mushrooms,8124,7,2.0,20.0,31654
 retail,88162,6,0.02,1.0,65301
 T10I4D100K,100000,6,0.02,1.0,107822
 accidents,340183,6,40.0,90.0,32528

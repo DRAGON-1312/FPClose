@@ -18,7 +18,7 @@ Previous five-dataset MANIFEST creation: 2026-11-20T22:15:26+00:00
 | Dataset | Transactions | Items | Avg length | Max length | Density % | Matches reference? |
 |---|---:|---:|---:|---:|---:|---|
 | chess | 3,196 | 75 | 37.0000 | 37 | 49.333333 | True |
-| mushrooms | 8,416 | 119 | 23.0000 | 23 | 19.327731 | True |
+| mushrooms | 8,124 | 119 | 23.0000 | 23 | 19.327731 | True |
 | retail | 88,162 | 16,470 | 10.3058 | 76 | 0.062573 | True |
 | T10I4D100K | 100,000 | 870 | 10.1023 | 29 | 1.161182 | True |
 | accidents | 340,183 | 468 | 33.8079 | 51 | 7.223908 | True |
@@ -40,14 +40,14 @@ Previous five-dataset MANIFEST creation: 2026-11-20T22:15:26+00:00
 - Preparation: inherited from the original 5-dataset notebook; original file retained.
 
 ### mushrooms
-- Raw file: `data/raw/mushrooms.txt`
+- Raw file: `data/raw/mushroom.dat`
 - Normalized file: `data/benchmark/mushrooms.txt`
-- Original URL: https://www.philippe-fournier-viger.com/spmf/publicdatasets/mushrooms.txt
-- Raw SHA-256: `3bc1159b06baa231932810d1d58cbb958684be88b6daa8e3672f8d76c5f0eb98`
-- Normalized SHA-256: `37a11571574d74bd1659c830a1e30e120485c6994b79f32e3b6635621a229bf7`
-- Item-ID offset: `0` (verified by reproduction — see "Item-ID offset of the first five datasets" below)
-- Measured transactions: `8416`
-- Preparation: inherited from the original 5-dataset notebook; original file retained.
+- Original URL: https://fimi.uantwerpen.be/data/mushroom.dat (identical to the mirror cs.rpi.edu/~zaki/Workshops/FIMI/data/mushroom.dat.gz after decompression)
+- Raw SHA-256: `6cf94bc482712c3936f0b40c921381ab2b776c3d9941880fecac4d83ca5cbeb5`
+- Normalized SHA-256: `06206c73983251a9488414c4379a030e836bbeb6fe9eff1b5624a0193a811640`
+- Item-ID offset: `0` (smallest source ID is 1)
+- Measured transactions: `8124`
+- Preparation: FIMI version (UCI Mushroom, 8,124 transactions).
 
 ### retail
 - Raw file: `data/raw/retail.txt`
@@ -138,7 +138,8 @@ normalized SHA-256 and transaction counts matched the values above byte for byte
 ## Public copy
 
 - Hugging Face (public): https://huggingface.co/datasets/hytrang/fpclose-fim-benchmarks
-- 9/9 public files were downloaded back and matched the normalized SHA-256 above (verified 2026-11-22).
+- 8/9 public files were downloaded back and matched the normalized SHA-256 above (verified 2026-11-22).
+  `mushrooms.txt` on Hugging Face is not yet the version above (SHA-256 `06206c73…1640`) and still has to be uploaded.
 - Direct download pattern: `https://huggingface.co/datasets/hytrang/fpclose-fim-benchmarks/resolve/main/<name>.txt`
 
 ## Derived datasets

@@ -1,0 +1,4 @@
+@FILETYPE="Frequent closed itemsets"
+@SOURCE="SPMF SOFTWARE https://philippe-fournier-viger.com/spmf/"
+2 #SUP: 100
+2 3 #SUP: 8

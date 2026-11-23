@@ -1,38 +1,56 @@
-# utils.jl
-# Đọc/ghi định dạng SPMF, đổi minsup, đọc tham số dòng lệnh.
+# Tiện ích: đọc/ghi định dạng SPMF, đổi ngưỡng minsup, đọc tham số dòng lệnh.
+#   read_spmf, write_spmf            : đọc cơ sở dữ liệu, ghi kết quả theo định dạng SPMF
+#   minsup_count, MINSUP_ROUNDING    : đổi ngưỡng tương đối sang số giao dịch
+#   sort_results!                    : sắp kết quả cho ổn định
+#   parse_minsup_ratio, parse_minconf, parse_cli_args, parse_cli_options, resolve_minsup : tham số dòng lệnh
 
 """
     read_spmf(path) -> Vector{Vector{Int}}
 
-Đọc CSDL định dạng SPMF: mỗi dòng một giao dịch, item là số nguyên dương
-cách nhau dấu cách. Bỏ dòng trống và dòng metadata của SPMF (bắt đầu bằng
-`#`, `%` hoặc `@`). Mỗi giao dịch được bỏ item trùng và sắp tăng dần.
+Đọc cơ sở dữ liệu định dạng SPMF: mỗi dòng là một giao dịch gồm các số nguyên không âm cách nhau
+dấu cách (item 0 hợp lệ). Bỏ dòng trống và dòng metadata (bắt đầu bằng `#`, `%` hoặc `@`). Mỗi giao dịch
+được bỏ item trùng và sắp tăng dần.
+
+- `path` : đường dẫn file input
+
+Trả về danh sách giao dịch. Báo `ArgumentError` (kèm số dòng) nếu có item âm hoặc không phải số nguyên.
 """
 function read_spmf(path::AbstractString)
     db = Vector{Int}[]
-    for line in eachline(path)
+    for (ln, line) in enumerate(eachline(path))
         s = strip(line)
         (isempty(s) || s[1] in ('#', '%', '@')) && continue
-        push!(db, sort!(unique!(parse.(Int, split(s)))))
+        items = Int[]
+        for tok in split(s)
+            v = tryparse(Int, tok)
+            v === nothing && throw(ArgumentError("$path, dòng $ln: \"$tok\" không phải số nguyên"))
+            v >= 0 || throw(ArgumentError("$path, dòng $ln: item âm ($v) không hợp lệ, item phải là số nguyên ≥ 0"))
+            push!(items, v)
+        end
+        push!(db, sort!(unique!(items)))
     end
     return db
 end
 
 """
-Cách làm tròn ngưỡng tương đối thành số giao dịch. Đặt ở MỘT chỗ duy nhất: nếu đối chiếu
-SPMF cho thấy SPMF làm tròn khác (ví dụ `round`), chỉ cần đổi hằng này.
-Hiện dùng `ceil`: một itemset phổ biến khi support ≥ minsup × n, nên số giao dịch tối
-thiểu là ceil(minsup × n) (Sec 1 tr. 1347: "support is greater than or equal to some
-given percentage s"). Không cộng/trừ dung sai: 0.07 × 100 = 7.000000000000001 → 8.
+    MINSUP_ROUNDING
+
+Cách làm tròn ngưỡng tương đối thành số giao dịch, đặt ở một chỗ duy nhất. Dùng `ceil` thuần,
+không cộng trừ dung sai (ví dụ 0.07 × 100 = 7.000000000000001 nên ngưỡng là 8); cách này
+khớp với SPMF.
 """
 const MINSUP_ROUNDING = ceil
 
 """
     minsup_count(minsup, n; rounding = MINSUP_ROUNDING) -> Int
 
-Đổi ngưỡng tương đối `minsup` (0 < minsup ≤ 1) sang số giao dịch tối thiểu
-trên CSDL `n` giao dịch: `rounding(Int, minsup × n)`, tối thiểu là 1.
-Ví dụ: 0.2 × 7 = 1.4 → 2; 0.4 × 5 = 2.0 → 2.
+Đổi ngưỡng tương đối sang số giao dịch tối thiểu, ít nhất là 1.
+
+- `minsup`   : ngưỡng tương đối, 0 < minsup ≤ 1
+- `n`        : số giao dịch của cơ sở dữ liệu
+- `rounding` : hàm làm tròn
+
+Ví dụ: 0.2 × 7 = 1.4 → 2.
 """
 function minsup_count(minsup::Real, n::Int; rounding = MINSUP_ROUNDING)
     0 < minsup <= 1 || throw(ArgumentError("minsup phải nằm trong (0, 1], nhận $minsup"))
@@ -40,9 +58,11 @@ function minsup_count(minsup::Real, n::Int; rounding = MINSUP_ROUNDING)
 end
 
 """
-    sort_results!(results)
+    sort_results!(results) -> results
 
-Sắp kết quả theo độ dài itemset rồi theo thứ tự từ điển, để output ổn định.
+Sắp kết quả theo độ dài itemset rồi theo thứ tự từ điển để output ổn định.
+
+- `results` : danh sách `itemset => support`, bị sắp tại chỗ
 """
 sort_results!(results) = sort!(results; by = p -> (length(p.first), p.first))
 
@@ -50,7 +70,10 @@ sort_results!(results) = sort!(results; by = p -> (length(p.first), p.first))
     write_spmf(io, results)
     write_spmf(path, results)
 
-Ghi kết quả theo định dạng output của SPMF, mỗi dòng: `1 2 6 #SUP: 2`.
+Ghi kết quả theo định dạng output của SPMF, mỗi dòng dạng `1 2 6 #SUP: 2`.
+
+- `io` / `path` : nơi ghi (luồng hoặc đường dẫn file)
+- `results`     : danh sách `itemset => support`
 """
 function write_spmf(io::IO, results)
     for (items, sup) in results
@@ -63,9 +86,13 @@ write_spmf(path::AbstractString, results) = open(io -> write_spmf(io, results), 
 """
     parse_minsup_ratio(s) -> Float64
 
-Đọc ngưỡng tương đối: "0.4" (tỉ lệ trong (0, 1]) hoặc "40%" (phần trăm trong (0, 100]),
-giống cách SPMF nhận minsup. Số > 1 không có dấu % bị từ chối (tránh nhầm "2" là 2 giao dịch
-hay 200%); "1" nghĩa là 100%. Muốn số giao dịch tuyệt đối thì dùng `--minsup-count`.
+Đọc ngưỡng tương đối dạng tỉ lệ "0.4" (trong (0, 1]) hoặc phần trăm "40%" (trong (0, 100]),
+giống cách SPMF nhận minsup. Số lớn hơn 1 không có dấu % bị từ chối để khỏi nhầm với số giao dịch;
+muốn dùng số giao dịch thì dùng `--minsup-count`.
+
+- `s` : chuỗi người dùng nhập
+
+Trả về tỉ lệ trong (0, 1]; báo `ArgumentError` nếu không đọc được hoặc ngoài miền.
 """
 function parse_minsup_ratio(s::AbstractString)
     pct = endswith(s, "%")
@@ -81,7 +108,11 @@ end
 """
     parse_minconf(s) -> Float64
 
-Đọc ngưỡng confidence "0.6" hoặc "60%", trong [0, 1].
+Đọc ngưỡng confidence dạng "0.6" hoặc "60%".
+
+- `s` : chuỗi người dùng nhập
+
+Trả về giá trị trong [0, 1]; báo `ArgumentError` nếu không đọc được hoặc ngoài miền.
 """
 function parse_minconf(s::AbstractString)
     pct = endswith(s, "%")
@@ -93,11 +124,21 @@ function parse_minconf(s::AbstractString)
     return r
 end
 
+# Câu hướng dẫn cách dùng, in kèm khi báo lỗi tham số
 const CLI_USAGE = "cách dùng: demo.jl (--minsup <tỉ lệ> | --minsup-count <số giao dịch>) " *
     "[--output-closed <file>] [--output-all <file>] [--rules <file> --minconf <0..1> [--top <k>]] <input.txt>"
 
-# Bộ phân tích chung cho `parse_cli_args` (extended = false: chỉ 4 tham số gốc) và
-# `parse_cli_options` (extended = true: thêm các tham số của recovery và luật kết hợp).
+"""
+    parse_cli_impl(args, extended) -> NamedTuple
+
+Bộ phân tích chung cho `parse_cli_args` và `parse_cli_options`.
+
+- `args`     : danh sách tham số dòng lệnh
+- `extended` : `false` chỉ nhận 4 tham số gốc, `true` nhận thêm các tham số của recovery và luật
+
+Báo `ArgumentError` với thông báo nói rõ tham số nào sai. Kết quả: xem `parse_cli_args` và
+`parse_cli_options`.
+"""
 function parse_cli_impl(args::Vector{String}, extended::Bool)
     usage = extended ? CLI_USAGE :
         "cách dùng: demo.jl (--minsup <tỉ lệ> | --minsup-count <số giao dịch>) [--output <file>] <input.txt>"
@@ -106,6 +147,7 @@ function parse_cli_impl(args::Vector{String}, extended::Bool)
         ("--minsup", "--minsup-count", "--output")
     got = Dict{String,String}()
     input = nothing
+    # Duyệt tham số: tham số có giá trị lấy thêm phần tử kế tiếp, còn lại là file input
     i = 1
     while i <= length(args)
         a = args[i]
@@ -127,6 +169,7 @@ $usage"))
     input === nothing && throw(ArgumentError("thiếu file input
 $usage"))
 
+    # Phải có đúng một trong hai cách đặt ngưỡng
     minsup = haskey(got, "--minsup") ? parse_minsup_ratio(got["--minsup"]) : nothing
     count = nothing
     if haskey(got, "--minsup-count")
@@ -144,11 +187,12 @@ $usage"))
     extended || return (minsup = minsup, minsup_count = count, input = input,
                         output = get(got, "--output", nothing))
 
-    # --output là tên cũ của --output-closed; dùng cả hai thì báo lỗi vì không rõ chọn cái nào.
+    # --output là tên cũ của --output-closed; dùng cả hai thì không rõ chọn cái nào nên báo lỗi
     (haskey(got, "--output") && haskey(got, "--output-closed")) &&
         throw(ArgumentError("--output là tên cũ của --output-closed, chỉ dùng một trong hai"))
     output_closed = get(got, "--output-closed", get(got, "--output", nothing))
 
+    # --minconf và --top chỉ có nghĩa khi có --rules, và --rules bắt buộc có --minconf
     rules = get(got, "--rules", nothing)
     minconf = haskey(got, "--minconf") ? parse_minconf(got["--minconf"]) : nothing
     top = nothing
@@ -174,34 +218,38 @@ end
 """
     parse_cli_args(args) -> NamedTuple
 
-Đọc tham số dòng lệnh dạng:
-    demo.jl (--minsup <tỉ lệ> | --minsup-count <số giao dịch>) [--output out.txt] input.txt
-- `--minsup 0.4` hoặc `--minsup 40%`: tỉ lệ (như SPMF).
-- `--minsup-count 2`: số giao dịch tuyệt đối (số nguyên ≥ 1).
-Báo `ArgumentError` nếu thiếu cả hai, có cả hai, giá trị ngoài miền, lặp tham số,
+Đọc tham số dòng lệnh dạng
+`demo.jl (--minsup <tỉ lệ> | --minsup-count <số giao dịch>) [--output <file>] <input.txt>`.
+
+- `args` : danh sách tham số dòng lệnh
+
+Trả về `(minsup, minsup_count, input, output)`, tham số không dùng là `nothing`.
+Báo `ArgumentError` nếu thiếu hoặc có cả hai cách đặt ngưỡng, giá trị ngoài miền, tham số bị lặp,
 thiếu giá trị, tham số lạ, hoặc không có đúng một file input.
-Trả về `(minsup, minsup_count, input, output)`; tham số không dùng là `nothing`.
-Bản đầy đủ có recovery và luật kết hợp là `parse_cli_options`.
 """
 parse_cli_args(args::Vector{String}) = parse_cli_impl(args, false)
 
 """
     parse_cli_options(args) -> NamedTuple
 
-Như `parse_cli_args` nhưng nhận thêm:
-- `--output-closed <file>` (và `--output` như tên cũ): ghi closed frequent itemset;
-- `--output-all <file>`: ghi MỌI frequent itemset (chạy recovery);
-- `--rules <file> --minconf <0..1> [--top <k>]`: ghi luật kết hợp (cũng chạy recovery),
-  lọc theo confidence ≥ minconf, giữ k luật lift cao nhất nếu có `--top`.
-Trả về `(minsup, minsup_count, input, output_closed, output_all, rules, minconf, top)`.
-Lỗi giá trị ném `ArgumentError` với thông báo nói rõ tham số nào sai.
+Như `parse_cli_args` nhưng nhận thêm các tham số cho recovery và luật kết hợp.
+
+- `args` : danh sách tham số dòng lệnh. Ngoài các tham số gốc còn có
+  `--output-closed <file>` (tên cũ `--output`), `--output-all <file>`, `--rules <file>`,
+  `--minconf <0..1>` (bắt buộc khi có `--rules`) và `--top <k>`
+
+Trả về `(minsup, minsup_count, input, output_closed, output_all, rules, minconf, top)`,
+tham số không dùng là `nothing`.
 """
 parse_cli_options(args::Vector{String}) = parse_cli_impl(args, true)
 
 """
     resolve_minsup(opts, n) -> Int
 
-Ngưỡng tuyệt đối (số giao dịch) từ kết quả `parse_cli_args` và số giao dịch `n` của CSDL.
+Đổi ngưỡng trong tham số dòng lệnh thành số giao dịch tuyệt đối.
+
+- `opts` : kết quả của `parse_cli_args` hoặc `parse_cli_options`
+- `n`    : số giao dịch của cơ sở dữ liệu
 """
 resolve_minsup(opts, n::Int) =
     opts.minsup_count !== nothing ? opts.minsup_count : minsup_count(opts.minsup, n)

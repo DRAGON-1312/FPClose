@@ -1,27 +1,22 @@
-# rules.jl
-# Sinh luật kết hợp (association rules) từ mọi frequent itemset.
-#
-# KHÔNG thuộc bài báo Grahne & Zhu: module nhóm bổ sung cho Chương 3 (phân tích giỏ hàng).
-#
-#   AssociationRule  : một luật X → Y kèm support, confidence, lift
-#   generate_rules   : mọi luật đạt minconf
-#   rank_rules!      : xếp hạng theo lift
-#   top_rules        : k luật đứng đầu
-#   write_rules      : ghi luật ra file/IO
+# Sinh luật kết hợp (association rules) từ mọi tập phổ biến. Đây là phần nhóm bổ sung.
+#   AssociationRule : một luật X → Y kèm support, confidence, lift
+#   generate_rules  : sinh mọi luật đạt ngưỡng confidence
+#   rank_rules!     : xếp hạng luật theo lift
+#   top_rules       : lấy k luật đứng đầu
+#   write_rules     : ghi luật ra file hoặc luồng
 
 """
     AssociationRule
 
-Luật `antecedent → consequent` (X → Y):
-- `antecedent`, `consequent` : X và Y, hai itemset khác rỗng, rời nhau, mỗi cái sắp tăng dần;
-- `count`      : sup(X ∪ Y), số giao dịch chứa cả X và Y;
-- `support`    : support(X → Y) = sup(X ∪ Y) / N;
-- `confidence` : confidence(X → Y) = sup(X ∪ Y) / sup(X);
-- `lift`       : lift(X → Y) = confidence(X → Y) / (sup(Y) / N).
+Luật X → Y. Gọi N là tổng số giao dịch, sup(·) là số giao dịch chứa một itemset.
 
-Ở đây N là tổng số giao dịch và sup(·) là số giao dịch chứa itemset đó. Ý nghĩa: confidence là
-xác suất có điều kiện P(Y | X); lift so P(Y | X) với P(Y): lift > 1 nghĩa là mua X làm tăng khả
-năng mua Y so với mức nền, lift = 1 là độc lập, lift < 1 là X làm giảm khả năng mua Y.
+- `antecedent` : vế trái X (khác rỗng, sắp tăng dần)
+- `consequent` : vế phải Y (khác rỗng, rời X, sắp tăng dần)
+- `count`      : sup(X ∪ Y)
+- `support`    : sup(X ∪ Y) / N
+- `confidence` : sup(X ∪ Y) / sup(X), tức xác suất có Y khi đã có X
+- `lift`       : confidence / (sup(Y) / N); lớn hơn 1 là có X làm tăng khả năng có Y so với mức nền,
+                 bằng 1 là độc lập, nhỏ hơn 1 là làm giảm
 """
 struct AssociationRule
     antecedent::Vector{Int}
@@ -35,20 +30,19 @@ end
 """
     generate_rules(frequent, n; minconf) -> Vector{AssociationRule}
 
-Sinh mọi luật X → Y với X, Y khác rỗng, X ∩ Y = ∅, X ∪ Y là frequent itemset và
-confidence ≥ `minconf` (`0 ≤ minconf ≤ 1`).
+Sinh mọi luật X → Y với X, Y khác rỗng, rời nhau, X ∪ Y phổ biến và confidence ≥ `minconf`.
 
-- `frequent` : MỌI frequent itemset (`itemset => support`), tức kết quả của
-  `recover_all_frequent`, không phải chỉ tập đóng. Lý do: sup(X) và sup(Y) của vế trái và vế phải
-  thường không phải tập đóng, nên không có trong kết quả của `fpclose`.
-- `n`        : tổng số giao dịch N của CSDL (mẫu số của support và lift).
-- confidence được tính bằng phép chia số nguyên `sup(X ∪ Y) / sup(X)` rồi so `≥ minconf`, không
-  nhân với `minconf`, để ngưỡng viết dạng thập phân (0.6) khớp chính xác khi confidence đúng
-  bằng ngưỡng (3/5 cho đúng giá trị `0.6`).
+- `frequent` : MỌI tập phổ biến (`itemset => support`), tức kết quả của `recover_all_frequent`,
+               không phải chỉ tập đóng, vì sup(X) và sup(Y) thường không phải tập đóng
+- `n`        : tổng số giao dịch N của cơ sở dữ liệu
+- `minconf`  : ngưỡng confidence, trong [0, 1]
 
-Kết quả đã xếp theo `rank_rules!` (lift giảm dần). Số luật tăng theo cấp số mũ với độ dài
-itemset (itemset độ dài ℓ cho 2^ℓ − 2 cách chọn X); dùng minsup đủ cao. Itemset dài quá 62 item
-không được hỗ trợ (và recovery cũng không thể liệt kê nổi).
+Trả về các luật đã xếp theo `rank_rules!`. Báo `ArgumentError` nếu `minconf` hoặc `n` ngoài miền,
+nếu thiếu support của một vế (truyền nhầm tập đóng), hoặc nếu có itemset dài quá 62 item.
+
+Confidence được tính bằng phép chia số nguyên rồi mới so với `minconf` (không nhân với `minconf`)
+để ngưỡng dạng thập phân khớp chính xác khi confidence đúng bằng ngưỡng (3/5 so với 0.6).
+Số luật tăng theo cấp số mũ với độ dài itemset.
 """
 function generate_rules(frequent, n::Integer; minconf::Real)
     0 <= minconf <= 1 || throw(ArgumentError("minconf phải nằm trong [0, 1], nhận $minconf"))
@@ -76,10 +70,12 @@ function generate_rules(frequent, n::Integer; minconf::Real)
 end
 
 """
-    rank_rules!(rules)
+    rank_rules!(rules) -> rules
 
-Sắp luật theo lift giảm dần; bằng lift thì confidence giảm dần, rồi support giảm dần, rồi theo
-thứ tự từ điển của (antecedent, consequent) để kết quả ổn định giữa các lần chạy.
+Sắp luật tại chỗ theo lift giảm dần; bằng lift thì theo confidence giảm dần, rồi support giảm dần,
+rồi thứ tự từ điển của (vế trái, vế phải) để kết quả ổn định.
+
+- `rules` : danh sách luật
 """
 rank_rules!(rules::Vector{AssociationRule}) =
     sort!(rules; by = r -> (-r.lift, -r.confidence, -r.support, r.antecedent, r.consequent))
@@ -87,7 +83,10 @@ rank_rules!(rules::Vector{AssociationRule}) =
 """
     top_rules(rules, k) -> Vector{AssociationRule}
 
-`k` luật có lift cao nhất (xếp theo `rank_rules!`); ít hơn `k` luật thì trả hết.
+Lấy `k` luật có lift cao nhất (không làm thay đổi `rules`); ít hơn `k` luật thì trả hết.
+
+- `rules` : danh sách luật
+- `k`     : số luật cần lấy, số nguyên dương
 """
 function top_rules(rules::Vector{AssociationRule}, k::Integer)
     k >= 1 || throw(ArgumentError("k phải là số nguyên dương, nhận $k"))
@@ -99,9 +98,12 @@ end
     write_rules(io, rules)
     write_rules(path, rules)
 
-Mỗi luật một dòng, theo kiểu của SPMF (`1 2 ==> 3 #SUP: 0.4 #CONF: 0.75 #LIFT: 1.25 #COUNT: 2`):
-`#SUP` là support tương đối sup(X ∪ Y)/N, `#CONF` là confidence, `#LIFT` là lift, `#COUNT` là
-số giao dịch chứa X ∪ Y.
+Ghi mỗi luật một dòng, ví dụ `1 2 ==> 3 #SUP: 0.4 #CONF: 0.75 #LIFT: 1.25 #COUNT: 2`, trong đó
+`#SUP` là support tương đối, `#CONF` là confidence, `#LIFT` là lift, `#COUNT` là số giao dịch
+chứa X ∪ Y.
+
+- `io` / `path` : nơi ghi (luồng hoặc đường dẫn file)
+- `rules`       : danh sách luật
 """
 function write_rules(io::IO, rules)
     for r in rules

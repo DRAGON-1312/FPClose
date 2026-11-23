@@ -1,57 +1,53 @@
-# Cấu trúc dữ liệu cho FPClose
-#   FPNode / FPTree   : FP-tree và conditional FP-tree T_X   
-#   CFINode / CFITree : CFI-tree C_X dùng để kiểm tra đóng  
-#
-# File này chỉ định nghĩa kiểu dữ liệu và các thao tác trên cây
-# (tạo nút con, nối node-link, duyệt node-link, in cây).
-# Logic thuật toán nằm ở src/algorithm/.
-#
-# Quy ước:
-#   - Item là số nguyên dương như định dạng SPMF. Item 0 dành cho nút gốc.
-#   - Mỗi cây có một thứ tự item (header). `rank[item] = 1` là item phổ biến nhất.
-#     Trong một nhánh, item luôn xuất hiện theo rank tăng dần từ gốc xuống lá.
+# Cấu trúc dữ liệu của FPClose: FP-tree, CFI-tree và các thao tác cơ bản trên cây.
+#   FPNode, FPTree     : FP-tree (cây gốc T_∅ và các cây điều kiện T_X)
+#   FPArrayConfig      : tham số của kỹ thuật FP-array
+#   CFINode, CFITree   : CFI-tree C_X, dùng để kiểm tra một itemset có đóng hay không
+#   link!, add_child!, nodelink, prefix_path, single_path : thao tác dùng chung cho cả hai loại cây
+# Quy ước: item là số nguyên không âm (item 0 là item thật), nút gốc dùng ROOT_ITEM = -1. Mỗi cây có một thứ tự item
+# (header), `rank[item] = 1` là item phổ biến nhất; trong một nhánh các item đi theo rank tăng dần.
 
-const ROOT_ITEM = 0
+# Item giả của nút gốc, cũng dùng làm giá trị "không có item"; item thật luôn ≥ 0 nên không trùng
+const ROOT_ITEM = -1
 
-# FP-tree
 """
+    FPNode
+
 Một nút của FP-tree.
-- `item`     : item của nút.
-- `count`    : số giao dịch đi qua nút (CỘNG DỒN khi chèn).
-- `parent`   : nút cha (`nothing` với gốc).
-- `children` : con của nút, tra theo item.
-- `next`     : node-link, nút kế tiếp có cùng item trong cây.
+
+- `item`     : item của nút
+- `count`    : số giao dịch đi qua nút (cộng dồn mỗi lần chèn thêm)
+- `parent`   : nút cha (`nothing` với nút gốc)
+- `children` : các nút con, tra theo item
+- `next`     : node-link, trỏ tới nút kế tiếp có cùng item trong cây
 """
 mutable struct FPNode
-    item::Int 
-    count::Int 
+    item::Int
+    count::Int
     parent::Union{FPNode, Nothing}
     children::Dict{Int, FPNode}
     next::Union{FPNode, Nothing}
 end
 
+# Nút mới chưa có con và chưa được nối node-link
 FPNode(item::Int, count::Int, parent::Union{FPNode, Nothing}) =
     FPNode(item, count, parent, Dict{Int, FPNode}(), nothing)
 
 """
-FP-tree T_X: conditional FP-tree của itemset X (`base`).
-Cây của cả CSDL là T_∅ (`base` rỗng).
+    FPTree
 
-- `base`, `base_count` : itemset X và support của X.
-- `items`      : các item trong header, theo thứ tự giảm dần count.
-- `rank`       : item => vị trí trong `items` (1 = phổ biến nhất).
-- `item_count` : item => tổng count của item trong cây
-                 (bằng support của X ∪ {item}).
-- `head`, `tail` : đầu và cuối danh sách node-link của mỗi item
-                   (giữ `tail` để nối nút mới vào cuối trong O(1)).
-- `fparray`    : FP-array A_X (Section 2.2), `nothing` nếu không tính. Chỉ lưu nửa tam giác
-                 dưới, xếp phẳng (xem fparray.jl): count của cặp item hạng r > c nằm ở
-                 `fparray[tri_index(r, c)]`. Dùng Int32 như bài báo giả định số nguyên 4 byte
-                 (Sec 2.3 tr. 1349).
-- `fparray_skip` : hàng của `skip` item đầu header không được tính trong `fparray`
-                 (Sec 2.3 tr. 1351); item đó phải đếm bằng cách duyệt cây.
-- `dense`      : kết quả heuristic "1/4 trên của cây chứa < 15% số nút" (Sec 2.3 tr. 1351);
-                 `true` thì không tính FP-array cho các cây con dựng từ cây này.
+FP-tree T_X: conditional FP-tree của itemset X. Cây của cả cơ sở dữ liệu là T_∅ (X rỗng).
+
+- `root`         : nút gốc
+- `base`         : itemset X
+- `base_count`   : support của X
+- `items`        : các item trong header, theo thứ tự count giảm dần
+- `rank`         : item => vị trí trong `items` (1 = phổ biến nhất)
+- `item_count`   : item => tổng count của item trong cây (= support của X ∪ {item})
+- `head`, `tail` : đầu và cuối danh sách node-link của mỗi item (giữ `tail` để nối thêm trong O(1))
+- `fparray`      : FP-array của cây, `nothing` nếu không tính; chỉ lưu nửa tam giác dưới,
+                   count của cặp item hạng r > c nằm ở `fparray[tri_index(r, c)]`
+- `fparray_skip` : hàng của `fparray_skip` item đầu header không được tính trong `fparray`
+- `dense`        : cây được coi là dày; nếu `true` thì không tính FP-array cho các cây con
 """
 mutable struct FPTree
     root::FPNode
@@ -70,16 +66,11 @@ end
 """
     FPArrayConfig(; dense_ratio = 0.15, skip_items = 15, max_items = 5000)
 
-Tham số của kỹ thuật FP-array (Sec 2.2–2.3). Truyền `nothing` thay cho cấu hình
-để tắt hẳn FP-array.
+Tham số của kỹ thuật FP-array. Ở những hàm nhận cấu hình này, truyền `nothing` là tắt FP-array.
 
-- `dense_ratio` : nếu 1/4 trên của cây chứa ít hơn tỉ lệ này tổng số nút thì coi dữ liệu
-                  là dày và không tính FP-array cho tầng sau (bài báo: 15%).
-- `skip_items`  : dữ liệu thưa thì không tính hàng của `skip_items` item đầu header
-                  (bài báo: 15).
-- `max_items`    : không tính FP-array cho cây có nhiều hơn số item này. Bài báo (tr. 1350)
-                  nêu giới hạn kích thước n(n-1)/2 và đề xuất bỏ kỹ thuật khi n quá lớn,
-                  nhưng không cho con số; 5000 item ≈ 50 MB Int32 là lựa chọn của nhóm.
+- `dense_ratio` : nếu một phần tư trên của cây chứa ít hơn tỉ lệ này tổng số nút thì coi cây là dày
+- `skip_items`  : không tính hàng FP-array của chừng này item đầu header
+- `max_items`   : không tính FP-array cho cây có nhiều item hơn mức này (tránh tốn bộ nhớ)
 """
 struct FPArrayConfig
     dense_ratio::Float64
@@ -93,59 +84,44 @@ FPArrayConfig(; dense_ratio::Real = 0.15, skip_items::Integer = 15, max_items::I
 """
     FPTree(base, base_count, item_counts)
 
-Tạo một FP-tree rỗng (chỉ có gốc và header).
-`item_counts` là các cặp `item => count` của những item phổ biến.
-Header xếp theo count giảm dần; bằng count thì item nhỏ đứng trước
-để kết quả luôn giống nhau giữa các lần chạy.
+Tạo FP-tree rỗng (chỉ có nút gốc và header).
+
+- `base`        : itemset X của cây (rỗng với cây gốc)
+- `base_count`  : support của X (với cây gốc là số giao dịch)
+- `item_counts` : các cặp `item => count` của những item phổ biến
+
+Header xếp theo count giảm dần, bằng count thì item nhỏ đứng trước để kết quả ổn định.
 """
-# Constructor (hàm tạo) của FPTree. Nhận 3 tham số:
-#   base        : itemset X mà cây này là T_X. Cây của cả CSDL thì base = Int[] (rỗng).
-#   base_count  : support của X. Cây gốc thì bằng số giao dịch (Fig. 1: 7).
-#   item_counts : các item phổ biến kèm count, ví dụ Dict(1=>5, 2=>5, 4=>5, 7=>4, 3=>2, 5=>2, 6=>2).
 function FPTree(base::Vector{Int}, base_count::Int, item_counts)
-    # Đổi item_counts thành mảng các cặp item => count rồi sắp xếp, đây là header table.
-    #   collect(Pair{Int,Int}, item_counts): đổi Dict thành Vector{Pair{Int,Int}} (Dict không có thứ tự, cần mảng mới sort được).
-    #   sort!(...): sắp xếp ngay trên mảng đó (dấu ! nghĩa là sửa trực tiếp, không tạo mảng mới).
-    #   by = p -> (-p.second, p.first): khóa so sánh cho mỗi cặp p = item => count.
-    #     p.second là count, đặt dấu trừ để count LỚN đứng trước (sort mặc định là tăng dần).
-    #     p.first là item: nếu count bằng nhau thì item số nhỏ đứng trước (phá hòa cố định).
-    #   Kết quả Fig. 1: [1=>5, 2=>5, 4=>5, 7=>4, 3=>2, 5=>2, 6=>2]
+    # Dict không có thứ tự nên chuyển thành mảng rồi sắp: count lớn trước, hòa thì item nhỏ trước
     pairs = sort!(collect(Pair{Int,Int}, item_counts); by = p -> (-p.second, p.first))
 
-    # Lấy riêng phần item theo đúng thứ tự trên (array comprehension).
-    #   Kết quả: items = [1, 2, 4, 7, 3, 5, 6]
     items = Int[p.first for p in pairs]
 
-    # Tạo bảng tra item => thứ hạng. enumerate(items) cho ra (1, 1), (2, 2), (3, 4), (4, 7), ...
-    # tức là (vị trí r, item). Ta đảo lại thành item => r.
-    #   Kết quả: rank = Dict(1=>1, 2=>2, 4=>3, 7=>4, 3=>5, 5=>6, 6=>7)
-    #   Dùng khi chèn giao dịch: sắp item theo rank để luôn đi từ item phổ biến nhất xuống.
+    # item => vị trí trong header
     rank = Dict{Int,Int}(item => r for (r, item) in enumerate(items))
 
-    # Bảng tra item => count, để hỏi nhanh "item này có count bao nhiêu" (O(1)).
-    #   Kết quả: item_count = Dict(1=>5, 2=>5, 4=>5, 7=>4, 3=>2, 5=>2, 6=>2)
-    #   Đây là support của base ∪ {item}, FPclose dùng làm count của Y ở dòng 7–8 Fig. 8.
+    # item => count, tra cứu O(1)
     item_count = Dict{Int,Int}(pairs)
 
-    # Tạo nút gốc: item = ROOT_ITEM (= 0, vì item thật luôn > 0), count 0, không có cha.
     root = FPNode(ROOT_ITEM, 0, nothing)
 
-    # Gọi constructor mặc định của struct FPTree, truyền đủ 9 trường theo đúng thứ tự khai báo:
-    #   root, base, base_count, items, rank, item_count,
-    #   head = Dict rỗng   (chưa có nút nào nên chưa có node-link)
-    #   tail = Dict rỗng
-    #   fparray = nothing  (chưa tính FP-array), fparray_skip = 0, dense = false
+    # Chưa có nút nào nên chưa có node-link; chưa tính FP-array
     return FPTree(root, base, base_count, items, rank, item_count,
                   Dict{Int,FPNode}(), Dict{Int,FPNode}(), nothing, 0, false)
 end
 
-# CFI-tree
 """
+    CFINode
+
 Một nút của CFI-tree.
-- `count` : count LỚN NHẤT trong các CFI đi qua nút (lấy MAX khi chèn, không cộng).
-- `level` : độ sâu của nút (gốc = 0). Đường từ gốc tới nút có đúng `level`
-            item, dùng để cắt sớm trong closed_checking.
-Các trường còn lại giống FPNode.
+
+- `item`     : item của nút
+- `count`    : count LỚN NHẤT trong các CFI đi qua nút (lấy max khi chèn, không cộng dồn)
+- `level`    : độ sâu của nút (gốc = 0), dùng để cắt sớm khi kiểm tra đóng
+- `parent`   : nút cha (`nothing` với nút gốc)
+- `children` : các nút con, tra theo item
+- `next`     : node-link, trỏ tới nút kế tiếp có cùng item trong cây
 """
 mutable struct CFINode
     item::Int
@@ -156,19 +132,22 @@ mutable struct CFINode
     next::Union{CFINode,Nothing}
 end
 
+# Nút mới nằm sâu hơn cha một mức, chưa có con và chưa được nối node-link
 CFINode(item::Int, count::Int, parent::CFINode) =
     CFINode(item, count, parent.level + 1, parent, Dict{Int,CFINode}(), nothing)
 
 """
-CFI-tree C_X, đi kèm FP-tree T_X.
+    CFITree
 
-Lưu mọi CFI đã tìm được có chứa X, nhưng BỎ phần X. CFI `X ∪ Z` được lưu
-dưới dạng `Z` với count của nó. Lý do: header của C_X dùng thứ tự item của
-T_X, mà T_X không chứa item của X (xem Section 3.2: chèn B ∪ (Y_j − Y_k) vào
-cây của Y_k).
+CFI-tree C_X đi kèm FP-tree T_X: lưu mọi CFI đã tìm được có chứa X.
+Mỗi CFI X ∪ Z được lưu dưới dạng Z (bỏ phần X) cùng count của nó.
 
-`rank` dùng chung (cùng một Dict, không copy) với T_X, vì hai cây có cùng
-thứ tự item và thứ tự này không đổi sau khi tạo cây.
+- `root` : nút gốc; count của gốc là count lớn nhất trong mọi CFI đã chèn
+- `base` : itemset X
+- `rank` : thứ tự item, dùng chung (không sao chép) với T_X
+- `head`, `tail` : đầu và cuối danh sách node-link của mỗi item
+- `child_item`   : item đang được mở rộng xuống cây con của cây này (`ROOT_ITEM` nếu không có); dùng cho CFI-tree
+                   rút gọn, vì item đó không cần lưu trong cây này
 """
 mutable struct CFITree
     root::CFINode
@@ -176,32 +155,38 @@ mutable struct CFITree
     rank::Dict{Int,Int}
     head::Dict{Int,CFINode}
     tail::Dict{Int,CFINode}
+    child_item::Int
 end
 
 """
     CFITree(t::FPTree)
 
-Tạo CFI-tree rỗng đi kèm FP-tree `t` (cùng base, cùng thứ tự item).
+Tạo CFI-tree rỗng cho FP-tree `t` (cùng `base`, cùng thứ tự item).
 """
 function CFITree(t::FPTree)
     root = CFINode(ROOT_ITEM, 0, 0, nothing, Dict{Int,CFINode}(), nothing)
-    return CFITree(root, t.base, t.rank, Dict{Int,CFINode}(), Dict{Int,CFINode}())
+    return CFITree(root, t.base, t.rank, Dict{Int,CFINode}(), Dict{Int,CFINode}(), ROOT_ITEM)
 end
 
-# ---------------------------------------------------------------------------
-# Thao tác chung cho cả hai loại cây (multiple dispatch)
-# ---------------------------------------------------------------------------
-
+# Các thao tác dưới đây dùng chung cho cả FP-tree và CFI-tree
 const AnyTree = Union{FPTree,CFITree}
 const AnyNode = Union{FPNode,CFINode}
 
+"""
+    nodetype(t) -> Type
+
+Kiểu nút của cây `t` (`FPNode` hoặc `CFINode`).
+"""
 nodetype(::FPTree) = FPNode
 nodetype(::CFITree) = CFINode
 
 """
-    link!(t, node)
+    link!(t, node) -> node
 
-Nối `node` vào cuối danh sách node-link của item của nó.
+Nối `node` vào cuối danh sách node-link của item của nó trong cây `t`.
+
+- `t`    : cây chứa nút
+- `node` : nút vừa tạo
 """
 function link!(t::AnyTree, node::AnyNode)
     last = get(t.tail, node.item, nothing)
@@ -215,10 +200,15 @@ function link!(t::AnyTree, node::AnyNode)
 end
 
 """
-    add_child!(t, parent, item, count)
+    add_child!(t, parent, item, count) -> child
 
-Tạo nút con mới cho `parent`, gắn vào cây và nối vào node-link.
-Gọi khi không có sẵn con mang `item` (việc kiểm tra này do code chèn làm).
+Tạo nút con mới mang `item` cho `parent`, gắn vào cây và nối vào node-link.
+Người gọi phải tự kiểm tra trước rằng `parent` chưa có con mang `item`.
+
+- `t`      : cây (`FPTree` hoặc `CFITree`)
+- `parent` : nút cha
+- `item`   : item của nút mới
+- `count`  : count ban đầu của nút mới
 """
 function add_child!(t::FPTree, parent::FPNode, item::Int, count::Int)
     child = FPNode(item, count, parent)
@@ -232,29 +222,33 @@ function add_child!(t::CFITree, parent::CFINode, item::Int, count::Int)
     return link!(t, child)
 end
 
-# Duyệt node-link: `for n in nodelink(t, item) ... end`
+"""
+    NodeLink
+
+Bộ duyệt danh sách node-link của một item: `for n in nodelink(t, item) ... end`.
+"""
 struct NodeLink{N<:AnyNode}
     first::Union{N,Nothing}
 end
 
+# Để dùng NodeLink trong vòng `for`
 Base.iterate(l::NodeLink, n = l.first) = n === nothing ? nothing : (n, n.next)
 Base.IteratorSize(::Type{<:NodeLink}) = Base.SizeUnknown()
 Base.eltype(::Type{NodeLink{N}}) where {N} = N
 
 """
-    nodelink(t, item)
+    nodelink(t, item) -> NodeLink
 
-Mọi nút mang `item` trong cây `t`, theo thứ tự node-link.
+Duyệt mọi nút mang `item` trong cây `t`, theo thứ tự node-link.
 """
 nodelink(t::AnyTree, item::Int) =
     NodeLink{nodetype(t)}(get(t.head, item, nothing))
 
 """
-    prefix_path(node)
+    prefix_path(node) -> Vector{Int}
 
-Các item trên đường từ gốc tới CHA của `node` (không gồm `node`), theo thứ tự
-từ gốc xuống. Với FP-tree, cùng `node.count`, đây chính là một dòng trong
-conditional pattern base của `node.item`.
+Các item trên đường từ gốc tới CHA của `node` (không gồm `node`), theo thứ tự từ gốc xuống.
+Trong FP-tree, kèm `node.count` thì đây là một dòng của conditional pattern base.
 """
 function prefix_path(node::AnyNode)
     path = Int[]
@@ -269,8 +263,8 @@ end
 """
     single_path(t::FPTree)
 
-Nếu `t` chỉ có một nhánh, trả về các nút trên nhánh đó từ trên xuống.
-Ngược lại trả về `nothing`. Cây rỗng cho nhánh rỗng.
+Nếu `t` chỉ có một nhánh thì trả về các nút của nhánh đó từ trên xuống, ngược lại trả về
+`nothing`. Cây rỗng cho nhánh rỗng.
 """
 function single_path(t::FPTree)
     path = FPNode[]
@@ -284,17 +278,22 @@ function single_path(t::FPTree)
     end
 end
 
+# Cây rỗng khi gốc không có con
 Base.isempty(t::AnyTree) = isempty(t.root.children)
 
-# ---------------------------------------------------------------------------
-# In cây để debug (theo ký hiệu trong bài báo)
-#   FP-tree  : item:count        (Fig. 1)
-#   CFI-tree : item:level:count  (Fig. 7)
-# ---------------------------------------------------------------------------
+"""
+    label(n) -> String
 
+Nhãn dùng khi in cây để debug: `item:count` với nút FP-tree, `item:level:count` với nút CFI-tree.
+"""
 label(n::FPNode) = "$(n.item):$(n.count)"
 label(n::CFINode) = "$(n.item):$(n.level):$(n.count)"
 
+"""
+    print_subtree(io, t, n, indent)
+
+In cây con gốc tại `n`, mỗi nút một dòng, con xếp theo rank, thụt vào `indent` cấp.
+"""
 function print_subtree(io::IO, t::AnyTree, n::AnyNode, indent::Int)
     kids = sort!(collect(values(n.children)); by = c -> t.rank[c.item])
     for c in kids
@@ -303,6 +302,7 @@ function print_subtree(io::IO, t::AnyTree, n::AnyNode, indent::Int)
     end
 end
 
+# In cây gọn trong REPL
 function Base.show(io::IO, ::MIME"text/plain", t::FPTree)
     println(io, "FPTree base=", t.base, " (count ", t.base_count, ")")
     println(io, "header: ", join(("$i:$(t.item_count[i])" for i in t.items), ", "))

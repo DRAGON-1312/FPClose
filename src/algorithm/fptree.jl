@@ -1,24 +1,21 @@
-# fptree.jl
-# Dựng FP-tree và conditional FP-tree (Grahne & Zhu 2005, Section 2.1 tr. 1348–1350, Fig. 1).
-#
-#   build_fptree       : dựng T_∅ từ CSDL bằng 2 lần quét
-#   insert_path!       : chèn một giao dịch (hoặc một dòng pattern base) vào cây
-#   pattern_base       : conditional pattern base của một item
-#   conditional_tree   : dựng T_Y với Y = T.base ∪ {item}
+# Dựng FP-tree và conditional FP-tree.
+#   insert_path!     : chèn một đường item (giao dịch hoặc dòng pattern base) vào cây
+#   sort_by_rank     : lọc và sắp item theo thứ tự header của cây
+#   build_fptree     : dựng cây gốc T_∅ từ cơ sở dữ liệu bằng 2 lần quét
+#   pattern_base     : conditional pattern base của một item (dùng khi test, không dùng khi dựng cây)
+#   prefix_items!    : lấy các item trên đường lên gốc của một nút vào bộ đệm
+#   conditional_tree : dựng cây điều kiện T_Y với Y = base ∪ {item}
 
 """
-    insert_path!(t, items, count)
+    insert_path!(t, items, count, levels = nothing) -> t
 
-Sec 2.1 tr. 1348: "If an itemset shares a prefix with an itemset already in the tree,
-this part of the branch will be shared. In addition, a counter is associated with each
-node in the tree." (Fig. 1b).
+Chèn một đường `items` vào FP-tree `t` với trọng số `count`. Đi từ gốc xuống: nút con đã có
+thì cộng thêm `count`, chưa có thì tạo nút mới với count = `count`.
 
-Chèn `items` vào FP-tree `t` với trọng số `count`.
-`items` PHẢI đã lọc (chỉ item có trong header) và sắp theo `t.rank` tăng dần.
-Đi từ gốc xuống: có sẵn con mang item thì cộng count, chưa có thì tạo nút mới.
-
-`levels` (tùy chọn): nếu có thì `levels[d] += 1` mỗi khi tạo nút mới ở mức d, để đếm số
-nút theo mức cho heuristic dày/thưa của FP-array (Sec 2.3 tr. 1351, `is_dense`).
+- `t`      : FP-tree
+- `items`  : các item đã lọc (chỉ gồm item trong header) và sắp theo `t.rank` tăng dần
+- `count`  : trọng số của đường (1 với giao dịch, count của nút với dòng pattern base)
+- `levels` : nếu có thì `levels[d]` được cộng 1 mỗi khi tạo nút mới ở mức d (để tính độ dày của cây)
 """
 function insert_path!(t::FPTree, items::Vector{Int}, count::Int,
                       levels::Union{Vector{Int},Nothing} = nothing)
@@ -37,61 +34,63 @@ function insert_path!(t::FPTree, items::Vector{Int}, count::Int,
 end
 
 """
-    sort_by_rank(t, items)
+    sort_by_rank(t, items) -> Vector{Int}
 
-Giữ lại các item có trong header của `t` và sắp theo thứ tự header.
-Sec 2.1 tr. 1348: "the set of frequent items in it is inserted into the FP-tree"
-(item không phổ biến bị bỏ, phần còn lại theo thứ tự header giảm dần theo count).
+Bỏ các item không có trong header của `t` rồi sắp phần còn lại theo thứ tự header.
+
+- `t`     : FP-tree
+- `items` : danh sách item cần lọc và sắp
 """
 sort_by_rank(t::FPTree, items) =
     sort!([i for i in items if haskey(t.rank, i)]; by = i -> t.rank[i])
 
 """
-    build_fptree(db, minsup)
+    build_fptree(db, minsup, cfg = nothing) -> FPTree
 
-Dựng FP-tree T_∅ cho CSDL `db` (mỗi giao dịch là một `Vector{Int}`),
-`minsup` là ngưỡng support tuyệt đối (số giao dịch). Sec 2.1 tr. 1348:
-"The first scan is to find all frequent items. These items are inserted into the header
-table in decreasing order of their count. In the second scan, as each transaction is
-scanned, the set of frequent items in it is inserted into the FP-tree as a branch."
+Dựng FP-tree gốc T_∅ của cơ sở dữ liệu bằng hai lần quét: lần 1 đếm support từng item và giữ
+item phổ biến, lần 2 lọc, sắp từng giao dịch theo header rồi chèn vào cây.
+Item trùng trong một giao dịch bị bỏ (giao dịch là một tập hợp).
 
-- Lần quét 1: đếm support từng item, giữ item có count ≥ minsup.
-- Lần quét 2: lọc và sắp từng giao dịch theo header rồi chèn vào cây.
+- `db`     : danh sách giao dịch, mỗi giao dịch là một `Vector{Int}` gồm các item ≥ 0 (item âm bị từ chối
+             vì trùng với item giả của nút gốc)
+- `minsup` : ngưỡng support tuyệt đối (số giao dịch)
+- `cfg`    : cấu hình FP-array, `nothing` là không dùng FP-array
 
-Item trùng trong một giao dịch bị bỏ (giao dịch là một tập, Sec 1 tr. 1347), kẻo đếm
-hai lần và chèn một item hai lần trên cùng đường đi. `read_spmf` đã làm việc này,
-nhưng ở đây làm lại để `fpclose` an toàn với `db` tạo bằng tay.
+Trả về FP-tree; khi có `cfg`, cây còn được đánh dấu dày/thưa và (nếu thưa) có FP-array.
+Cơ sở dữ liệu chỉ bị quét đúng 2 lần: FP-array của cây gốc được đếm ngay trong lần quét 2,
+cùng lúc với việc chèn từng giao dịch vào cây.
 """
 function build_fptree(db::Vector{Vector{Int}}, minsup::Int,
                       cfg::Union{FPArrayConfig,Nothing} = nothing)
     counts = Dict{Int,Int}()
     for t in db, item in unique(t)               # lần quét 1
+        item >= 0 || throw(ArgumentError("item âm ($item) không hợp lệ, item phải là số nguyên ≥ 0"))
         counts[item] = get(counts, item, 0) + 1
     end
     filter!(p -> p.second >= minsup, counts)
     tree = FPTree(Int[], length(db), counts)
     m = length(tree.items)
     levels = cfg === nothing ? nothing : zeros(Int, m)
+    # Cây gốc chưa biết dày hay thưa trước khi dựng xong, nên cứ cấp phát FP-array nếu kích thước hợp lệ
+    # và đếm song song; nếu cuối cùng cây dày thì bỏ mảng
+    fill = cfg !== nothing && cfg.skip_items < m <= cfg.max_items
+    A = fill ? new_fparray(m) : nothing
+    ranks = Int[]
     for t in db                                  # lần quét 2
         items = sort_by_rank(tree, unique(t))
-        isempty(items) || insert_path!(tree, items, 1, levels)
+        isempty(items) && continue
+        insert_path!(tree, items, 1, levels)
+        if fill
+            resize!(ranks, length(items))
+            for (k, x) in enumerate(items)
+                ranks[k] = tree.rank[x]
+            end
+            accumulate_pairs!(A, ranks, 1, cfg.skip_items)
+        end
     end
     if cfg !== nothing
         tree.dense = is_dense(levels, cfg.dense_ratio)
-        # A_∅: bài báo dựng song song với T_∅ ở lần quét 2 (Sec 2.2 tr. 1350). T_∅ không có
-        # cây cha để suy ra dày/thưa, nên ta dùng chính độ dày của T_∅ rồi mới đếm cặp
-        # bằng một lần quét giao dịch nữa, và chỉ khi dữ liệu thưa (docs/DEVIATIONS.md mục 10).
-        if !tree.dense && cfg.skip_items < m <= cfg.max_items
-            A = new_fparray(m)
-            ranks = Int[]
-            for t in db
-                items = sort_by_rank(tree, unique(t))
-                resize!(ranks, length(items))
-                for (k, x) in enumerate(items)
-                    ranks[k] = tree.rank[x]
-                end
-                accumulate_pairs!(A, ranks, 1, cfg.skip_items)
-            end
+        if fill && !tree.dense
             tree.fparray = A
             tree.fparray_skip = cfg.skip_items
         end
@@ -100,53 +99,79 @@ function build_fptree(db::Vector{Vector{Int}}, minsup::Int,
 end
 
 """
-    pattern_base(t, item)
+    pattern_base(t, item) -> Vector{Tuple{Vector{Int},Int}}
 
-Conditional pattern base của `item` trong `t` (Sec 2.1 tr. 1349: "by following the linked
-list starting at i … all branches that contain item i are visited. The portion of these
-branches from i to the root forms the conditional pattern base"): đi theo node-link của
-`item`, với mỗi nút lấy đường đi từ gốc tới cha của nó, kèm count của nút.
-Ví dụ Fig. 1c: pattern base của f là [(b,a,g):1, (b,a,d):1].
+Conditional pattern base của `item` trong `t`: với mỗi nút mang `item` (đi theo node-link) lấy
+đường từ gốc tới cha của nút, kèm count của nút.
+
+- `t`    : FP-tree
+- `item` : item cần lấy pattern base
 """
 pattern_base(t::FPTree, item::Int) =
     [(prefix_path(n), n.count) for n in nodelink(t, item)]
 
 """
-    conditional_tree(t, item, minsup, cfg = nothing)
+    prefix_items!(buf, ty, node) -> buf
 
-Dựng T_Y với Y = t.base ∪ {item} (Fig. 8 dòng 9–14; Sec 2.1 tr. 1349: "The FP-growth
-method then constructs the conditional FP-tree T_{X∪{i}} by first initializing its header
-table based on the frequent items found, then revisiting the branches of T_X along the
-linked list of i and inserting the corresponding itemsets in T_{X∪{i}}").
+Ghi vào `buf` (xóa nội dung cũ) các item nằm trên đường từ gốc tới cha của `node`, chỉ giữ item có
+trong header của `ty`, rồi sắp theo thứ tự header của `ty`. Dùng lại cùng một `buf` cho nhiều nút
+để không phải tạo mảng mới cho mỗi nút.
 
-1. Lấy pattern base của `item` trong `t`.
-2. Tìm item phổ biến trong pattern base (dòng 9–12 Fig. 8): nếu `t` có hàng FP-array của
-   `item` thì đọc từ đó (`tail_counts`, dòng 9–10, không duyệt cây); không thì đếm bằng
-   cách duyệt pattern base (dòng 11–12).
-3. Tạo cây rỗng với header mới (thứ tự item có thể khác `t`: "the order of items can be
-   different in T_X and T_{X∪{i}}", tr. 1349), rồi chèn từng dòng của pattern base
-   đã lọc và sắp lại (lần duyệt thứ hai).
+- `buf`  : mảng dùng làm bộ đệm
+- `ty`   : cây đích, quyết định item nào được giữ và thứ tự của chúng
+- `node` : nút của FP-tree cha, đường đi tính từ cha của nút này lên gốc
+"""
+function prefix_items!(buf::Vector{Int}, ty::FPTree, node::FPNode)
+    empty!(buf)
+    p = node.parent
+    while p !== nothing && p.item != ROOT_ITEM
+        haskey(ty.rank, p.item) && push!(buf, p.item)
+        p = p.parent
+    end
+    return sort!(buf; by = i -> ty.rank[i])
+end
 
-Với `cfg` khác `nothing`, trong lúc chèn còn đếm số nút theo mức để tính `ty.dense`, và,
-nếu `t` không dày (Sec 2.3 tr. 1351: "If the data set appears to be dense, we do not
-calculate the FP-array for the next level of the FP-tree"), điền luôn FP-array A_Y cho
-`ty` (Fig. 3 dòng 9: "construct Y's conditional FP-tree T_Y and possibly its FP-array A_Y").
-Không cấp phát FP-array khi `ty` có ≤ `skip_items` item (mọi hàng đều bị bỏ) hoặc > `max_items`.
+"""
+    conditional_tree(t, item, minsup, cfg = nothing; stats = nothing) -> FPTree
 
-Count của Y là `t.item_count[item]`.
+Dựng cây điều kiện T_Y của Y = `t.base` ∪ {`item`}. Không dựng sẵn pattern base trong bộ nhớ mà
+đi theo node-link của `item` trực tiếp, hai luồng:
+- Nếu `t` có hàng FP-array của `item`: đọc count các item phổ biến từ FP-array (không duyệt cây),
+  tạo cây mới, rồi đi theo node-link ĐÚNG MỘT LẦN, với mỗi nút lấy các item trên đường lên gốc,
+  lọc, sắp theo header cây mới và chèn ngay vào cây mới.
+- Nếu không: đi theo node-link lần 1 để đếm count từng item (cộng theo count của nút), giữ item
+  có count ≥ `minsup`, tạo cây mới, rồi đi theo node-link lần 2 để chèn như trên.
+
+Header của cây mới có thể xếp khác `t`.
+
+- `t`      : FP-tree cha
+- `item`   : item mở rộng thêm vào `t.base`
+- `minsup` : ngưỡng support tuyệt đối
+- `cfg`    : cấu hình FP-array, `nothing` là không dùng. Có `cfg` thì trong lúc chèn còn đếm số nút
+             theo mức để đánh dấu độ dày của cây mới, và nếu `t` không dày thì điền luôn FP-array
+             cho cây mới (cộng theo count của nút, không cộng 1)
+- `stats`  : một `FPCloseStats` hoặc `nothing`; nếu có thì `tree_traversals` được cộng thêm 1 cho
+             mỗi lần đi theo node-link trên FP-tree `t`
+
+Support của Y lấy từ `t.item_count[item]`.
 """
 function conditional_tree(t::FPTree, item::Int, minsup::Int,
-                          cfg::Union{FPArrayConfig,Nothing} = nothing)
+                          cfg::Union{FPArrayConfig,Nothing} = nothing;
+                          stats = nothing)
     base = sort!(vcat(t.base, item))
     base_count = t.item_count[item]
-    pb = pattern_base(t, item)
 
     if has_row(t, item)
         counts = tail_counts(t, item, minsup)
     else
+        stats === nothing || (stats.tree_traversals += 1)      # lần đi node-link để đếm
         counts = Dict{Int,Int}()
-        for (path, c) in pb, i in path
-            counts[i] = get(counts, i, 0) + c
+        for n in nodelink(t, item)
+            p = n.parent
+            while p !== nothing && p.item != ROOT_ITEM
+                counts[p.item] = get(counts, p.item, 0) + n.count
+                p = p.parent
+            end
         end
         filter!(p -> p.second >= minsup, counts)
     end
@@ -154,19 +179,22 @@ function conditional_tree(t::FPTree, item::Int, minsup::Int,
     ty = FPTree(base, base_count, counts)
     m = length(ty.items)
     levels = cfg === nothing ? nothing : zeros(Int, m)
+    # Chỉ điền FP-array cho cây mới khi cây cha không dày và cây mới đủ lớn nhưng không quá lớn
     fill = cfg !== nothing && !t.dense && cfg.skip_items < m <= cfg.max_items
     A = fill ? new_fparray(m) : nothing
+    path = Int[]
     ranks = Int[]
-    for (path, c) in pb
-        items = sort_by_rank(ty, path)
-        isempty(items) && continue
-        insert_path!(ty, items, c, levels)
+    stats === nothing || (stats.tree_traversals += 1)          # lần đi node-link để chèn
+    for n in nodelink(t, item)
+        prefix_items!(path, ty, n)
+        isempty(path) && continue
+        insert_path!(ty, path, n.count, levels)
         if fill
-            resize!(ranks, length(items))
-            for (k, x) in enumerate(items)
+            resize!(ranks, length(path))
+            for (k, x) in enumerate(path)
                 ranks[k] = ty.rank[x]
             end
-            accumulate_pairs!(A, ranks, c, cfg.skip_items)
+            accumulate_pairs!(A, ranks, n.count, cfg.skip_items)   # cộng theo count của nút, không cộng 1
         end
     end
     if cfg !== nothing

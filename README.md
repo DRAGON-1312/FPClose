@@ -20,6 +20,9 @@ FPClose/
 ├── Manifest.toml
 ├── demo.jl
 ├── scripts/
+│   ├── data_setup.jl
+│   ├── reference_check.jl
+│   ├── make_spmf_fixtures.jl
 │   ├── compare_spmf.jl
 │   └── benchmark.jl
 ├── src/
@@ -38,16 +41,30 @@ FPClose/
 │   ├── test_correctness.jl
 │   ├── test_optimizations.jl
 │   ├── test_recovery.jl
+│   ├── test_spmf_fixtures.jl
 │   ├── test_benchmark.jl
 │   ├── brute_force.jl
-│   └── mutation_record_x.jl
+│   ├── mutation_record_x.jl
+│   └── fixtures/spmf/          # output SPMF đã lưu, test so từng itemset (không cần Java)
+├── data/                       # CHỈ dữ liệu đầu vào
+│   ├── README.md               # nguồn, SHA-256, thống kê, cách tái tạo 9 dataset benchmark
+│   ├── meta/                   # cấu hình dữ liệu: dataset_statistics, benchmark_config, benchmark_inventory,
+│   │                           #   derived_hashes, synthetic_statistics (CSV)
+│   ├── toy/                    # CSDL nhỏ để test; toy/extra/ có thêm 3 CSDL nhỏ
+│   ├── benchmark/              # 9 dataset benchmark (.txt bị .gitignore, chỉ giữ .gitkeep)
+│   ├── scalability/            # Retail subsets (sinh ra, bị .gitignore)
+│   ├── synthetic/              # CSDL tổng hợp theo độ dài giao dịch (sinh ra, bị .gitignore)
+│   └── raw/                    # file gốc tải về (bị .gitignore)
+├── results/                    # mọi kết quả, được commit
+│   ├── reference/              # SPMF và FIMI kiểm dữ liệu (reference_check.jl)
+│   ├── correctness/            # so cài đặt của nhóm với SPMF (compare_spmf.jl)
+│   ├── optimization/           # số đo các tối ưu của Chương 1
+│   ├── pilot/                  # chạy thử lưới minsup bằng SPMF
+│   └── runtime/ memory/ scalability/ txlen/ figures/   # dành cho Chương 2
 ├── notebooks/
 │   └── demo.ipynb
-├── docs/
-│   └── DEVIATIONS.md
-└── data/
-    ├── toy/
-    └── benchmark/
+└── docs/
+    └── DEVIATIONS.md
 ```
 
 | Đường dẫn | Vai trò |
@@ -62,18 +79,21 @@ FPClose/
 | `src/algorithm/fparray.jl` | Section 2.2–2.3: FP-array. |
 | `src/algorithm/cfitree.jl` | Section 4.1: CFI-tree và `closed_checking`. |
 | `src/algorithm/fpclose.jl` | Fig. 8: thủ tục `FPclose`. |
-| `test/` | Các bài test: `runtests.jl` là điểm vào; `test_correctness.jl`, `test_optimizations.jl` (mọi tổ hợp bật/tắt tối ưu so với bản cơ bản và vét cạn), `test_recovery.jl` (recovery, luật kết hợp, CLI), `test_benchmark.jl`; `brute_force.jl` là bộ đáp án vét cạn; `mutation_record_x.jl` là test đột biến chạy riêng (không nằm trong `runtests.jl`). |
+| `test/` | Các bài test: `runtests.jl` là điểm vào; `test_correctness.jl`, `test_optimizations.jl` (mọi tổ hợp bật/tắt tối ưu so với bản cơ bản và vét cạn), `test_recovery.jl` (recovery, luật kết hợp, CLI), `test_spmf_fixtures.jl` (so từng itemset với output SPMF đã lưu, không cần Java), `test_benchmark.jl`; `brute_force.jl` là bộ đáp án vét cạn; `mutation_record_x.jl` là test đột biến chạy riêng (không nằm trong `runtests.jl`). |
+| `scripts/data_setup.jl` | Tải và chuẩn hóa 9 dataset benchmark, sinh Retail subsets và synthetic, kiểm SHA-256 (xem mục "Chuẩn bị dữ liệu"). |
+| `scripts/reference_check.jl` | Kiểm dữ liệu bằng SPMF FPClose và FPclose gốc của FIMI, ghi vào `results/reference/`. |
+| `scripts/make_spmf_fixtures.jl` | Sinh fixture từ SPMF cho `test/fixtures/spmf/` và lập bảng `results/correctness/toy_vs_spmf.*` (xem mục "So sánh với SPMF"). |
 | `scripts/compare_spmf.jl` | Chạy SPMF và bản của nhóm trên cùng input rồi so kết quả (xem mục "So sánh với SPMF"). |
 | `scripts/benchmark.jl` | Đo thời gian và bộ nhớ đỉnh khi bật/tắt từng tối ưu, xuất CSV vào `out/` (xem mục "Đo hiệu năng"). |
-| `tools/`, `out/` | Không commit (nằm trong `.gitignore`): `tools/spmf.jar` do người dùng tải về, `out/` chứa output tạm và CSV benchmark. |
+| `tools/`, `out/` | Không commit (nằm trong `.gitignore`): `tools/` chứa `spmf.jar` và FIMI, `out/` chứa output tạm. Kết quả cần giữ được chuyển vào `results/`. |
 | `notebooks/demo.ipynb` | Notebook demo (để chạy trên Google Colab). |
 | `docs/` | Tài liệu, báo cáo (`docs/Report.pdf` là file PDF duy nhất được commit). `docs/DEVIATIONS.md` liệt kê mọi chỗ code khác hoặc bổ sung so với bài báo, kèm lý do. |
 | `demo.jl` | Script chạy thuật toán từ dòng lệnh. |
-| `data/toy/` | Dữ liệu nhỏ để kiểm thử và demo (`pasquier99.txt`, `rounding_test.txt`). |
-| `data/benchmark/` | Dữ liệu cỡ lớn để đo hiệu năng. Hiện chưa có file nào. |
-
-> Phần `data/` do thành viên khác phụ trách; README chỉ liệt kê những gì đang có trong thư mục.
-> Hiện `data/toy/` có `pasquier99.txt` và `rounding_test.txt`.
+| `data/README.md` | Nguồn, SHA-256, thống kê và cách tái tạo 9 dataset benchmark; bản sao công khai trên Hugging Face. |
+| `data/meta/` | Cấu hình dữ liệu dạng CSV; `scripts/data_setup.jl` và `scripts/reference_check.jl` đọc từ đây, không chép cứng. |
+| `data/toy/` | Dữ liệu nhỏ để kiểm thử và demo (`pasquier99.txt`, `rounding_test.txt`; thêm `extra/`). Test đọc thư mục này. |
+| `data/benchmark/`, `data/scalability/`, `data/synthetic/`, `data/raw/` | Dữ liệu cỡ lớn, không commit (chỉ có `.gitkeep`); tạo bằng `scripts/data_setup.jl`. |
+| `results/` | Kết quả chạy được commit, chia theo loại (xem cây thư mục). |
 
 ## Cài đặt môi trường
 
@@ -82,6 +102,23 @@ Yêu cầu: Julia ≥ 1.9.
 ```
 julia --project=. -e "using Pkg; Pkg.instantiate()"
 ```
+
+## Chuẩn bị dữ liệu benchmark
+
+Dữ liệu benchmark lớn không nằm trong repo. Tạo chúng bằng script (chỉ dùng thư viện chuẩn của Julia), mọi
+cấu hình và SHA-256 đọc từ `data/meta/*.csv`:
+
+```
+julia --project=. scripts/data_setup.jl                          # tải 9 dataset đã chuẩn hóa từ Hugging Face (mặc định)
+julia --project=. scripts/data_setup.jl --from-source            # tải từ SPMF/FIMI rồi chuẩn hóa
+julia --project=. scripts/data_setup.jl --from-source --only mushrooms,chess
+julia --project=. scripts/reference_check.jl --datasets chess    # kiểm dữ liệu bằng SPMF và FIMI, ghi results/reference/
+```
+
+`data_setup.jl` luôn sinh thêm 5 Retail subsets (`data/scalability/`) và 6 synthetic (`data/synthetic/`) rồi so hash.
+Với `--from-source`, nếu URL chính lỗi (ví dụ `cs.rpi.edu` bị từ chối chứng chỉ trên Windows) thì script thử
+`fallback_url` trong `data/meta/dataset_statistics.csv`. Mã thoát khác 0 nếu có bước lệch hash. Chi tiết nguồn, hash và
+thống kê: `data/README.md`. Item trong mọi file là số nguyên không âm; file benchmark chuẩn hóa chỉ có item ≥ 1.
 
 ## Cách chạy
 
@@ -133,7 +170,7 @@ julia --project scripts/compare_spmf.jl data/toy/pasquier99.txt 40%             
 julia --project scripts/compare_spmf.jl --mode all data/toy/pasquier99.txt 40%       # mọi frequent itemset
 julia --project scripts/compare_spmf.jl --mode both --baseline data/toy/rounding_test.txt 7%
 julia --project scripts/compare_spmf.jl --table                                       # bảng cho mọi data/toy/*.txt
-julia --project scripts/compare_spmf.jl --table --dir out/extra_toy --minsups 60%,20%,2%
+julia --project scripts/compare_spmf.jl --table --dir data/toy/extra --minsups 60%,20%,2%
 ```
 
 - Chế độ `closed`: FPClose của nhóm so với SPMF `FPClose` (`java -jar tools/spmf.jar run FPClose ...`).
@@ -144,8 +181,23 @@ julia --project scripts/compare_spmf.jl --table --dir out/extra_toy --minsups 60
   là 0 khi khớp hoàn toàn, 1 khi có lệch, 2 khi SPMF lỗi hoặc tham số sai.
 - `--table` in bảng markdown (file, minsup, số giao dịch, số closed FI, số khớp, tỉ lệ khớp, số all-FI, số khớp,
   tỉ lệ khớp) và ghi `out/compare_table.csv`. Tỉ lệ khớp = số dòng khớp hoàn toàn / số dòng của hợp hai bên.
+  Các bảng đã chạy và dùng trong báo cáo được lưu ở `results/correctness/compare_table*.csv|md`.
 - `--baseline` chạy FPClose bản cơ bản (không FP-array, không kết thúc sớm); `--jar` đổi đường dẫn jar.
 - Output thô nằm ở `out/spmf_<chế độ>_<tên>_<minsup>.txt` và `out/ours_<chế độ>_<tên>_<minsup>.txt`.
+
+**Fixture cho unit test (không cần Java khi chạy test).** `scripts/make_spmf_fixtures.jl` chạy SPMF `FPClose` và
+`FPGrowth_itemsets` trên 6 CSDL nhỏ của `data/toy/` và `data/toy/extra/` (mỗi CSDL 2 đến 4 mức minsup, gồm các mức
+làm tròn kiểu 7% và một CSDL có item 0), lưu NGUYÊN output vào `test/fixtures/spmf/` (36 file kèm `manifest.csv`).
+`test/test_spmf_fixtures.jl` so từng itemset và support của `fpclose` (bản mặc định và bản tắt mọi tối ưu) và của
+`recover_all_frequent` với các file đó. Cần Java 25 và `tools/spmf.jar` chỉ khi sinh lại fixture:
+
+```
+julia --project=. scripts/make_spmf_fixtures.jl                 # sinh lại fixture bằng SPMF, rồi lập bảng
+julia --project=. scripts/make_spmf_fixtures.jl --report-only   # chỉ lập bảng từ fixture đã lưu (không cần Java)
+```
+
+Bảng `results/correctness/toy_vs_spmf.csv|md` (CSDL, minsup, chế độ, `n_ours`, `n_spmf`, `n_match`, `match_rate`):
+36/36 cặp CSDL × minsup × chế độ khớp hoàn toàn (tỉ lệ khớp 100%), cả với bản mặc định lẫn bản tắt mọi tối ưu.
 
 ## Đo hiệu năng
 
@@ -168,17 +220,64 @@ Các công tắc cũng có sẵn trong API: `fpclose(db, minsup; fparray = false
 prune_line8 = true, exact_count = true, reduced_cfitree = true)`. Mặc định bật hết; `benchmark.jl` chỉ
 bật/tắt ba công tắc đầu, hai công tắc sau (`exact_count`, `reduced_cfitree`) luôn ở giá trị mặc định.
 
+## Chạy lưới benchmark (Chương 2)
+
+`scripts/run_benchmark_grid.jl` chạy cả lưới đo của Chương 2 (không vẽ biểu đồ). Cần Java và `tools/spmf.jar`,
+dữ liệu đã tạo bằng `scripts/data_setup.jl`.
+
+```
+julia --project=. scripts/run_benchmark_grid.jl                      # cả 5 phần, 56 cấu hình, 3 lần, timeout 600 s/lần
+julia --project=. scripts/run_benchmark_grid.jl --quick              # bản rút gọn (chess + mushrooms), vài phút, file có đuôi _quick
+julia --project=. scripts/run_benchmark_grid.jl --datasets chess --only runtime,correctness
+julia --project=. scripts/run_benchmark_grid.jl --runs 1 --timeout 120
+```
+
+| Tham số | Ý nghĩa |
+|---|---|
+| `--only` | Chọn phần, cách nhau bằng dấu phẩy: `correctness`, `runtime`, `memory`, `scalability`, `txlen` (mặc định: cả 5). `txlen_pilot` chạy thử các mức minsup của txlen. |
+| `--datasets` | Giới hạn dataset của `correctness`, `runtime`, `memory` (`scalability` và `txlen` dùng dữ liệu cố định, bỏ qua tham số này). |
+| `--runs`, `--timeout` | Số lần đo (mặc định 3) và timeout mỗi lần chạy, tính bằng giây (mặc định 600). Quá hạn thì ghi `TIMEOUT` và chạy tiếp. |
+| `--quick` | chess + mushrooms, 2–3 mức minsup, 1 lần đo. File kết quả có hậu tố `_quick`. |
+| `--suffix`, `--machine` | Hậu tố tên file kết quả; tên máy ghi vào cột `machine` (mặc định tên máy hoặc biến `FPCLOSE_MACHINE`). |
+| `--fi-limit`, `--txlen-minsups`, `--scal-minsups` | Giới hạn số FI khi so mọi FI (mặc định 2.000.000), các mức minsup (%) của txlen (mặc định 0.5,0.2) và của scalability (mặc định 0.1,0.05). |
+| `--no-skip-after-timeout` | Không bỏ qua các minsup thấp hơn sau khi một công cụ đã TIMEOUT ở minsup cao hơn của cùng dataset. |
+
+Chạy tiếp được: dòng đã có trạng thái `OK`, `TIMEOUT` hoặc `SKIPPED` trong file CSV không bị chạy lại, dòng `FAILED` được
+chạy lại. Log ở `out/grid.log`; cấu hình máy ở `results/ENVIRONMENT.md`.
+
+| Phần | Nội dung | Kết quả |
+|---|---|---|
+| `correctness` | So từng itemset và support của `fpclose` với SPMF FPClose trên 56 cấu hình; kiểm thêm mọi FI (`recover_all_frequent` so với SPMF FPGrowth) ở minsup cao nhất của mỗi dataset, `SKIPPED` kèm lý do nếu vượt `--fi-limit`. | `results/correctness/grid_correctness.csv` |
+| `runtime` | Thời gian và bộ nhớ của nhóm (tùy chọn mặc định) và SPMF trên 56 cấu hình. | `results/runtime/grid_runtime.csv` (+ `README.md` giải thích cột) |
+| `memory` | Ở minsup giữa của mỗi dataset: bản cơ bản (tắt hết), bản theo bài báo (chỉ `prune_line8`), bản tối ưu (mặc định) và bản tắt riêng từng tối ưu; mọi bộ đếm `FPCloseStats`; kiểm mọi biến thể ra cùng tập đóng. | `results/memory/basic_vs_optimized.csv` |
+| `scalability` | Retail con 10%…100%, hai mức minsup tương đối. | `results/scalability/scalability.csv` |
+| `txlen` | CSDL tổng hợp theo độ dài giao dịch 5…30. | `results/txlen/txlen.csv` (+ `README.md` giải thích cách chọn minsup) |
+
+**Cách đo.** Mỗi lần đo của nhóm chạy trong một tiến trình Julia riêng, đã warm-up trên dữ liệu nhỏ để loại thời gian biên dịch.
+Đồng hồ chỉ bắt đầu sau warm-up và tách `read_s` (đọc), `mine_s` (khai thác), `write_s` (`write_spmf`).
+`time_with_write_s` GỒM bước ghi file (dùng để so với SPMF, vì "Total time" của SPMF đã gồm ghi output);
+`time_no_write_s` KHÔNG gồm ghi file (SPMF để trống). Việc đọc lại hai file output và so từng itemset làm sau khi dừng
+đồng hồ, không tính vào thời gian.
+
+**Bộ nhớ.** Nhóm: `Sys.maxrss()` (RSS đỉnh) của tiến trình riêng, kèm số đo nền (`baseline_mem_mb`, tiến trình chỉ warm-up)
+và `mem_delta_mb = peak − baseline`. Lưu ý: (1) nền khoảng 290 MB nên với cấu hình nhỏ mức tăng chỉ vài chục MB, `maxrss` là
+đỉnh nên không phân biệt được các biến thể gần nhau, hãy dùng thêm cột `alloc_mb` (tổng bộ nhớ cấp phát) và các bộ đếm;
+(2) SPMF báo "Max memory usage" của heap JVM, KHÔNG phải RSS, nên không so trực tiếp với số của nhóm.
+
 ## Chạy test
 
 ```
 julia --project test/runtests.jl
 ```
 
+Các test so với SPMF dùng output đã lưu trong `test/fixtures/spmf/` nên không cần Java.
+
 Output lần chạy test cuối: TODO
 
 ## Định dạng input/output (SPMF)
 
-**Input**: mỗi dòng là một giao dịch; các item là số nguyên, cách nhau bằng dấu cách.
+**Input**: mỗi dòng là một giao dịch; các item là số nguyên không âm (item 0 hợp lệ), cách nhau bằng dấu cách.
+Item âm hoặc không phải số nguyên bị từ chối với thông báo nêu số dòng.
 
 **Output**: mỗi dòng là một closed frequent itemset, theo sau là độ hỗ trợ (support) sau `#SUP:`.
 

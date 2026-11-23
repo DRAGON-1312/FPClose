@@ -1,0 +1,12 @@
+@FILETYPE="Frequent closed itemsets"
+@SOURCE="SPMF SOFTWARE https://philippe-fournier-viger.com/spmf/"
+1 2 3 #SUP: 2
+0 2 3 #SUP: 2
+2 3 #SUP: 3
+1 2 #SUP: 3
+0 1 2 #SUP: 2
+0 2 #SUP: 3
+2 #SUP: 4
+1 #SUP: 4
+0 1 #SUP: 3
+0 #SUP: 5

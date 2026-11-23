@@ -9,5 +9,6 @@ include("brute_force.jl")
     include("test_correctness.jl")
     include("test_optimizations.jl")
     include("test_recovery.jl")
+    include("test_spmf_fixtures.jl")
     include("test_benchmark.jl")
 end

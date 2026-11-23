@@ -1,0 +1,10 @@
+dataset,n_transactions,n_levels,min_minsup_pct,max_minsup_pct,max_closed_itemsets
+chess,3196,7,60.0,90.0,98392
+mushrooms,8124,7,2.0,20.0,31654
+retail,88162,6,0.02,1.0,65301
+T10I4D100K,100000,6,0.02,1.0,107822
+accidents,340183,6,40.0,90.0,32528
+connect,67557,6,70.0,95.0,35875
+kosarak,990002,6,0.2,1.0,35864
+pumsb_star,49046,6,35.0,70.0,6129
+T40I10D100K,100000,6,1.0,5.0,65236

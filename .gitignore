@@ -31,3 +31,16 @@ __pycache__/
 Thumbs.db
 .DS_Store
 .vscode/
+
+# Dữ liệu lớn: lưu trên Hugging Face/Drive, không commit
+data/benchmark/*.txt
+data/scalability/*
+!data/scalability/.gitkeep
+data/synthetic/*.txt
+data/raw/*
+!data/raw/.gitkeep
+
+# Output tạm của SPMF
+spmf_out*.txt
+*.spmf.out
+

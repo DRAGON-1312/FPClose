@@ -1,0 +1,6 @@
+# Chuẩn hóa xuống dòng LF cho file văn bản (tránh CRLF trên Windows làm lệch SHA-256)
+*.txt text eol=lf
+*.csv text eol=lf
+*.md  text eol=lf
+*.py  text eol=lf
+*.jl  text eol=lf

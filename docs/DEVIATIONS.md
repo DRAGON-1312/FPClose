@@ -341,7 +341,7 @@ với count − 1) làm 132 test fail.
 
 Số đo cũ của mục này (trước các lần sửa FP-array, bỏ cấp phát thừa, `exact_count`, CFI-tree rút gọn) đã lỗi
 thời nên được thay bằng số đo mới. Chạy: `julia --project scripts/benchmark.jl --synthetic --minsups 0.05,0.02,0.01 --reps 3 --combos all`
-(CSV: `out/benchmark_synthetic_v2.csv`, không commit). CSDL: 20.000 giao dịch, 200 item, 40 pattern cài sẵn
+(CSV và log: `results/optimization/benchmark_synthetic_v2.csv|log`). CSDL: 20.000 giao dịch, 200 item, 40 pattern cài sẵn
 kiểu IBM Quest, độ dài trung bình 14,1, seed 2026. Thời gian = nhỏ nhất của 3 lần, mỗi cấu hình một tiến trình
 Julia riêng có warm-up. "L8" = cắt dòng 8, "FA" = FP-array, "ET" = kết thúc sớm. `exact_count` và
 `reduced_cfitree` ở giá trị mặc định (bật) trong mọi ô. Số itemset giống nhau ở mọi tổ hợp (4.988 / 25.658 / 417.016).
@@ -411,7 +411,8 @@ với 11,3 s mining. Ở 5% và 2% số FI bằng số CFI (4.988 và 25.658) v�
 - So với SPMF (`scripts/compare_spmf.jl`): chế độ closed với SPMF `FPClose`, chế độ all với SPMF
   `FPGrowth_itemsets`. Trên `data/toy/*.txt` ở 60%, 40%, 20%, 7%, và ba CSDL bổ sung (Fig. 1, bài 5 giao dịch,
   một CSDL ngẫu nhiên 200 giao dịch seed 2026) ở 60%, 40%, 20%, 10%, 2%: khớp 100% cả closed lẫn all-FI.
-  Số liệu trong `out/compare_table.csv` và `out/compare_table_extra.csv` (không commit; chạy lại bằng
+  Số liệu trong `results/correctness/compare_table.csv` và `results/correctness/compare_table_extra.csv` (bảng markdown
+  tương ứng `compare_table_toy.md`, `compare_table_extra.md`; ba CSDL bổ sung nằm ở `data/toy/extra/`; chạy lại bằng
   `--table`).
 
 ## 14. `closed_checking` lọc count bằng `==` (`exact_count`): khác bài báo

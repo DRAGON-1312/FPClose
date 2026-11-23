@@ -22,6 +22,7 @@ FPClose/
 ├── scripts/
 │   ├── data_setup.jl
 │   ├── reference_check.jl
+│   ├── make_spmf_fixtures.jl
 │   ├── compare_spmf.jl
 │   └── benchmark.jl
 ├── src/
@@ -40,9 +41,11 @@ FPClose/
 │   ├── test_correctness.jl
 │   ├── test_optimizations.jl
 │   ├── test_recovery.jl
+│   ├── test_spmf_fixtures.jl
 │   ├── test_benchmark.jl
 │   ├── brute_force.jl
-│   └── mutation_record_x.jl
+│   ├── mutation_record_x.jl
+│   └── fixtures/spmf/          # output SPMF đã lưu, test so từng itemset (không cần Java)
 ├── data/                       # CHỈ dữ liệu đầu vào
 │   ├── README.md               # nguồn, SHA-256, thống kê, cách tái tạo 9 dataset benchmark
 │   ├── meta/                   # cấu hình dữ liệu: dataset_statistics, benchmark_config, benchmark_inventory,
@@ -76,9 +79,10 @@ FPClose/
 | `src/algorithm/fparray.jl` | Section 2.2–2.3: FP-array. |
 | `src/algorithm/cfitree.jl` | Section 4.1: CFI-tree và `closed_checking`. |
 | `src/algorithm/fpclose.jl` | Fig. 8: thủ tục `FPclose`. |
-| `test/` | Các bài test: `runtests.jl` là điểm vào; `test_correctness.jl`, `test_optimizations.jl` (mọi tổ hợp bật/tắt tối ưu so với bản cơ bản và vét cạn), `test_recovery.jl` (recovery, luật kết hợp, CLI), `test_benchmark.jl`; `brute_force.jl` là bộ đáp án vét cạn; `mutation_record_x.jl` là test đột biến chạy riêng (không nằm trong `runtests.jl`). |
+| `test/` | Các bài test: `runtests.jl` là điểm vào; `test_correctness.jl`, `test_optimizations.jl` (mọi tổ hợp bật/tắt tối ưu so với bản cơ bản và vét cạn), `test_recovery.jl` (recovery, luật kết hợp, CLI), `test_spmf_fixtures.jl` (so từng itemset với output SPMF đã lưu, không cần Java), `test_benchmark.jl`; `brute_force.jl` là bộ đáp án vét cạn; `mutation_record_x.jl` là test đột biến chạy riêng (không nằm trong `runtests.jl`). |
 | `scripts/data_setup.jl` | Tải và chuẩn hóa 9 dataset benchmark, sinh Retail subsets và synthetic, kiểm SHA-256 (xem mục "Chuẩn bị dữ liệu"). |
 | `scripts/reference_check.jl` | Kiểm dữ liệu bằng SPMF FPClose và FPclose gốc của FIMI, ghi vào `results/reference/`. |
+| `scripts/make_spmf_fixtures.jl` | Sinh fixture từ SPMF cho `test/fixtures/spmf/` và lập bảng `results/correctness/toy_vs_spmf.*` (xem mục "So sánh với SPMF"). |
 | `scripts/compare_spmf.jl` | Chạy SPMF và bản của nhóm trên cùng input rồi so kết quả (xem mục "So sánh với SPMF"). |
 | `scripts/benchmark.jl` | Đo thời gian và bộ nhớ đỉnh khi bật/tắt từng tối ưu, xuất CSV vào `out/` (xem mục "Đo hiệu năng"). |
 | `tools/`, `out/` | Không commit (nằm trong `.gitignore`): `tools/` chứa `spmf.jar` và FIMI, `out/` chứa output tạm. Kết quả cần giữ được chuyển vào `results/`. |
@@ -181,6 +185,20 @@ julia --project scripts/compare_spmf.jl --table --dir data/toy/extra --minsups 6
 - `--baseline` chạy FPClose bản cơ bản (không FP-array, không kết thúc sớm); `--jar` đổi đường dẫn jar.
 - Output thô nằm ở `out/spmf_<chế độ>_<tên>_<minsup>.txt` và `out/ours_<chế độ>_<tên>_<minsup>.txt`.
 
+**Fixture cho unit test (không cần Java khi chạy test).** `scripts/make_spmf_fixtures.jl` chạy SPMF `FPClose` và
+`FPGrowth_itemsets` trên 6 CSDL nhỏ của `data/toy/` và `data/toy/extra/` (mỗi CSDL 2 đến 4 mức minsup, gồm các mức
+làm tròn kiểu 7% và một CSDL có item 0), lưu NGUYÊN output vào `test/fixtures/spmf/` (36 file kèm `manifest.csv`).
+`test/test_spmf_fixtures.jl` so từng itemset và support của `fpclose` (bản mặc định và bản tắt mọi tối ưu) và của
+`recover_all_frequent` với các file đó. Cần Java 25 và `tools/spmf.jar` chỉ khi sinh lại fixture:
+
+```
+julia --project=. scripts/make_spmf_fixtures.jl                 # sinh lại fixture bằng SPMF, rồi lập bảng
+julia --project=. scripts/make_spmf_fixtures.jl --report-only   # chỉ lập bảng từ fixture đã lưu (không cần Java)
+```
+
+Bảng `results/correctness/toy_vs_spmf.csv|md` (CSDL, minsup, chế độ, `n_ours`, `n_spmf`, `n_match`, `match_rate`):
+36/36 cặp CSDL × minsup × chế độ khớp hoàn toàn (tỉ lệ khớp 100%), cả với bản mặc định lẫn bản tắt mọi tối ưu.
+
 ## Đo hiệu năng
 
 ```
@@ -207,6 +225,8 @@ bật/tắt ba công tắc đầu, hai công tắc sau (`exact_count`, `reduced_
 ```
 julia --project test/runtests.jl
 ```
+
+Các test so với SPMF dùng output đã lưu trong `test/fixtures/spmf/` nên không cần Java.
 
 Output lần chạy test cuối: TODO
 

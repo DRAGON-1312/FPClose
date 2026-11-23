@@ -1,12 +1,25 @@
-# FIM benchmark dataset MANIFEST — 9 datasets
+# FIM benchmark datasets: MANIFEST — 9 datasets
 
 Updated (UTC): 2026-11-20T22:16:01+00:00
 Previous five-dataset MANIFEST creation: 2026-11-20T22:15:26+00:00
 
+This file was `data/benchmark/MANIFEST.md`; it now lives in `data/README.md`. `data/` holds input data only:
+
+| Path | Content | Committed |
+|---|---|---|
+| `data/meta/` | Configuration read by the scripts: `dataset_statistics.csv` (sources, fallback URLs, SHA-256, offsets, statistics), `benchmark_config.csv` (56 minsup configurations), `benchmark_inventory.csv`, `derived_hashes.csv`, `synthetic_statistics.csv` | yes |
+| `data/toy/` | Tiny datasets for tests (`extra/` has three more) | yes |
+| `data/benchmark/` | The 9 clean datasets (`<name>.txt`) | only `.gitkeep` |
+| `data/scalability/`, `data/synthetic/` | Derived datasets (Retail subsets, synthetic by transaction length) | only `.gitkeep` |
+| `data/raw/` | Original downloaded files | only `.gitkeep` |
+
+Create everything with `julia --project=. scripts/data_setup.jl` (see "Reproducibility"). Results live in `results/`.
+
 ## Dataset preparation
 - Original raw files are kept unchanged in `data/raw/`.
 - Clean files are UTF-8, LF-separated SPMF transactions (one per line).
-- Item IDs are sorted unique positive integers separated by one ASCII space.
+- Item IDs are sorted unique positive integers separated by one ASCII space. (FPClose itself accepts any
+  non-negative item ID, item 0 included; the clean files below contain only IDs >= 1.)
 - `#`, `@`, `%` source metadata lines are removed; blank/invalid transaction rows are rejected.
 - When source item IDs include zero, all IDs are shifted by +1 (bijection); this is recorded below.
 - Only use CLEAN files on **both** the group implementation and SPMF.
@@ -95,6 +108,7 @@ Previous five-dataset MANIFEST creation: 2026-11-20T22:15:26+00:00
 - Raw file: `data/raw/kosarak.dat.gz`
 - Normalized file: `data/benchmark/kosarak.txt`
 - Original URL: https://cs.rpi.edu/~zaki/Workshops/FIMI/data/kosarak.dat.gz
+- Fallback URL (`fallback_url` in `data/meta/dataset_statistics.csv`, tried when the original URL fails; plain text, not gzip; its normalized SHA-256 matches the value below, verified 2026-11-23): https://fimi.uantwerpen.be/data/kosarak.dat
 - Raw SHA-256: `b7f575183ba6e7f61e9a7b51ec386d33ce503a14227832ad5986bb57baaf0102`
 - Normalized SHA-256: `cb4270629d786207143bb3c4002c36aedc3824f55294c7b3d5538c8023cec314`
 - Item-ID offset: `0`
@@ -107,6 +121,7 @@ Previous five-dataset MANIFEST creation: 2026-11-20T22:15:26+00:00
 - Raw file: `data/raw/pumsb_star.dat.gz`
 - Normalized file: `data/benchmark/pumsb_star.txt`
 - Original URL: https://cs.rpi.edu/~zaki/Workshops/FIMI/data/pumsb_star.dat.gz
+- Fallback URL (`fallback_url` in `data/meta/dataset_statistics.csv`, tried when the original URL fails; plain text, not gzip; its normalized SHA-256 matches the value below, verified 2026-11-23): https://fimi.uantwerpen.be/data/pumsb_star.dat
 - Raw SHA-256: `7386d5bd0b56611942a365958003430478d3d47cd920199736b602776005aada`
 - Normalized SHA-256: `a9ecd5c882ffff9e0042703253d0eef3453f747537e0027c9be275a8aaf38f2f`
 - Item-ID offset: `1`
@@ -119,6 +134,7 @@ Previous five-dataset MANIFEST creation: 2026-11-20T22:15:26+00:00
 - Raw file: `data/raw/T40I10D100K.dat` (note: despite the `.dat` name, the downloaded file is gzip-compressed; detect by magic bytes `1f 8b`, not by extension)
 - Normalized file: `data/benchmark/T40I10D100K.txt`
 - Original URL: https://cs.rpi.edu/~zaki/Workshops/FIMI/data/T40I10D100K.dat
+- Fallback URL (`fallback_url` in `data/meta/dataset_statistics.csv`, tried when the original URL fails; plain text, not gzip; its normalized SHA-256 matches the value below, verified 2026-11-23): https://fimi.uantwerpen.be/data/T40I10D100K.dat
 - Raw SHA-256: `3939b939cba8380de51a00e9831d975639678f7b4115e4a6f29ca50d3d695339`
 - Normalized SHA-256: `e3d86e8cf6eec0093528e238ab8a4ba10471375c00a9298144edb462caadb28c`
 - Item-ID offset: `1`
@@ -131,23 +147,43 @@ Previous five-dataset MANIFEST creation: 2026-11-20T22:15:26+00:00
 
 The historical records of chess, mushrooms, retail, T10I4D100K and accidents say
 `unknown_original_not_logged`. On 2026-11-23 all 9 raw files were downloaded again from
-the URLs above and re-normalized with `data/notebooks/data_setup.ipynb`
-(Julia): 9/9 raw SHA-256 matched, and with offset `0` for these five datasets the
-normalized SHA-256 and transaction counts matched the values above byte for byte.
+the URLs above and re-normalized with the Julia notebook that is now `scripts/data_setup.jl`:
+9/9 raw SHA-256 matched, and with offset `0` for these five datasets the normalized SHA-256 and
+transaction counts matched the values above byte for byte. `id_offset` in `data/meta/dataset_statistics.csv`
+is therefore `0` for all five (it used to say `unknown_original_not_logged`).
 
 ## Public copy
 
 - Hugging Face (public): https://huggingface.co/datasets/hytrang/fpclose-fim-benchmarks
-- 8/9 public files were downloaded back and matched the normalized SHA-256 above (verified 2026-11-22).
-  `mushrooms.txt` on Hugging Face is not yet the version above (SHA-256 `06206c73…1640`) and still has to be uploaded.
+- 8/9 public files match the normalized SHA-256 above (verified 2026-11-22 and again 2026-11-23).
+  **`mushrooms.txt` on Hugging Face is still the old SPMF version** (8,416 transactions, SHA-256 `37a11571…9bf7`):
+  it has to be re-uploaded with the clean file of **8,124 transactions** (SHA-256 `06206c73…1640`, produced by
+  `julia --project=. scripts/data_setup.jl --from-source --only mushrooms`). Until then
+  `scripts/data_setup.jl --from-hf` reports `[FAIL]` for mushrooms; use `--from-source` for that dataset.
 - Direct download pattern: `https://huggingface.co/datasets/hytrang/fpclose-fim-benchmarks/resolve/main/<name>.txt`
 
 ## Derived datasets
 
 - `data/scalability/retail_p010..p100.txt`: nested Retail subsets (seed 2026, size `n*p//100`).
 - `data/synthetic/len05..len30.txt`: 6 correlated synthetic datasets (10,000 transactions, 500 items, seed 2026);
-  statistics in `data/synthetic/synthetic_statistics.csv`.
-- SHA-256 and line counts: `data/results/derived_hashes.csv`. These files are not committed; regenerate them with `data/notebooks/data_setup.ipynb`.
+  statistics in `data/meta/synthetic_statistics.csv`.
+- SHA-256 and line counts: `data/meta/derived_hashes.csv`. These files are not committed; regenerate them with
+  `julia --project=. scripts/data_setup.jl` (it always rebuilds them and compares the hashes).
+
+## Minsup levels dropped because of timeouts
+
+The pilot grid (`results/pilot/minsup_pilot_all.csv`, SPMF FPClose, limit 300 s per run) kept 56 configurations
+(`data/meta/benchmark_config.csv`). Three lower levels were dropped because SPMF did not finish within 300 s
+(status `TIMEOUT`, no result):
+
+| Dataset | minsup | Reason |
+|---|---:|---|
+| kosarak | 0.15% | SPMF TIMEOUT, exceeded 300 s |
+| kosarak | 0.1% | SPMF TIMEOUT, exceeded 300 s |
+| T40I10D100K | 0.5% | SPMF TIMEOUT, exceeded 300 s |
+
+The pilot times include the JVM start-up and are not benchmark numbers. A level that one tool cannot finish
+is also a finding worth reporting in Chapter 2.
 
 ## License and attribution
 
@@ -157,13 +193,27 @@ The group did not create these datasets. They are redistributed only to make the
 - Original licenses and citations of each source apply.
 
 ## Reproducibility
-- `data/notebooks/data_setup.ipynb` (Julia, self-contained) reproduces every file from the original
-  sources: download and normalization of the 9 datasets, statistics, Retail subsets and synthetic datasets
-  (with a port of Python's `random.Random`, so the published subsets and synthetic files are reproduced exactly).
-  Each file is checked against the recorded hashes. Verified 2026-11-23: 9/9 normalized datasets,
-  9/9 statistics, 6/6 synthetic and 5/5 Retail subsets identical.
-- `data/notebooks/reference_check.ipynb` (Julia, self-contained) runs SPMF FPClose and the original FIMI
-  FPclose (Grahne & Zhu, `fimi06b.tgz`) on the 56 configurations of `data/results/benchmark_config.csv`.
-  Verified 2026-11-23: SPMF matched `reference_closed_itemsets` in 56/56 configurations, and SPMF and FIMI
-  produced identical closed itemsets and supports in 56/56. This validates the data and the reference tools,
-  not the group's implementation.
+- `scripts/data_setup.jl` (Julia, standard library only) reproduces every data file. It reads all sources, URLs,
+  hashes and offsets from `data/meta/*.csv` (nothing is hard-coded in the script) and always ends with the
+  Retail subsets and the synthetic datasets, each checked against the recorded SHA-256 (a port of Python's
+  `random.Random` reproduces the published subsets and synthetic files exactly):
+  ```
+  julia --project=. scripts/data_setup.jl                          # --from-hf (default): clean files from Hugging Face
+  julia --project=. scripts/data_setup.jl --from-source            # original SPMF/FIMI sources, then normalize
+  julia --project=. scripts/data_setup.jl --from-source --only mushrooms,chess
+  ```
+  Verified 2026-11-23 (previous notebook version): 9/9 normalized datasets, 9/9 statistics, 6/6 synthetic and
+  5/5 Retail subsets identical. Verified with the script: `--from-source --only mushrooms` (download from the
+  original URL, SHA-256 match), `--from-source --only kosarak` (original URL fails on Windows with an untrusted
+  certificate, the fallback URL gives the same normalized SHA-256), Retail subsets 5/5 and synthetic 6/6.
+- `scripts/reference_check.jl` (Julia) runs SPMF FPClose and the original FIMI FPclose (Grahne & Zhu,
+  `fimi06b.tgz`) on the 56 configurations of `data/meta/benchmark_config.csv` and writes
+  `results/reference/spmf_check.csv` and `results/reference/fimi_compare.csv`:
+  ```
+  julia --project=. scripts/reference_check.jl                     # 9 datasets, 56 configurations (about 10 min)
+  julia --project=. scripts/reference_check.jl --datasets chess    # quick check, files get a `_chess` suffix
+  ```
+  Verified 2026-11-23 with the previous notebook version: SPMF matched `reference_closed_itemsets` in 56/56
+  configurations, and SPMF and FIMI produced identical closed itemsets and supports in 56/56. Verified with the
+  script on `chess` (7 configurations): SPMF 7/7, SPMF = FIMI 7/7. This validates the data and the reference
+  tools, not the group's implementation.

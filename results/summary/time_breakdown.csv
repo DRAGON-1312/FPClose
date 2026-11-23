@@ -1,0 +1,10 @@
+dataset,minsup_pct,read_build_other_s,mine_s,write_s,parts_sum_s,ours_time_with_write_s,spmf_time_with_write_s,pct_read_build_other,pct_mine,pct_write,mine_s_memory_csv,source
+chess,75.0,0.00909,0.07185,0.00864,0.08958,0.08955,0.185,10.1,80.2,9.6,0.0721,"runtime: read_s, mine_s, write_s"
+mushrooms,7.0,0.00986,0.1105,0.0066,0.127,0.1269,0.251,7.8,87.0,5.2,0.1089,"runtime: read_s, mine_s, write_s"
+retail,0.2,0.1086,0.4194,0.00249,0.5305,0.5305,0.459,20.5,79.1,0.5,0.3718,"runtime: read_s, mine_s, write_s"
+T10I4D100K,0.2,0.1062,1.026,0.01122,1.143,1.289,0.786,9.3,89.7,1.0,0.9676,"runtime: read_s, mine_s, write_s"
+accidents,70.0,1.152,0.9279,0.00106,2.081,2.077,0.901,55.4,44.6,0.1,0.8805,"runtime: read_s, mine_s, write_s"
+connect,85.0,0.2958,0.3641,0.00745,0.6674,0.6676,0.4,44.3,54.6,1.1,0.3558,"runtime: read_s, mine_s, write_s"
+kosarak,0.4,1.156,2.677,0.00252,3.836,3.836,2.146,30.1,69.8,0.1,2.632,"runtime: read_s, mine_s, write_s"
+pumsb_star,50.0,0.2488,0.2722,0.00089,0.5219,0.5214,0.349,47.7,52.1,0.2,0.2524,"runtime: read_s, mine_s, write_s"
+T40I10D100K,2.0,0.3981,6.298,0.00198,6.698,6.698,5.751,5.9,94.0,0.0,6.208,"runtime: read_s, mine_s, write_s"

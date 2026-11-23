@@ -165,7 +165,8 @@ bản cơ bản, +FP-array, +kết thúc sớm, +cả hai.
 gian mining để so). `--max-fi N` (mặc định 5.000.000) dừng recovery khi số FI vượt `N` và ghi `status = LIMIT`.
 
 Các công tắc cũng có sẵn trong API: `fpclose(db, minsup; fparray = false, early_termination = false,
-prune_line8 = true)`.
+prune_line8 = true, exact_count = true, reduced_cfitree = true)`. Mặc định bật hết; `benchmark.jl` chỉ
+bật/tắt ba công tắc đầu, hai công tắc sau (`exact_count`, `reduced_cfitree`) luôn ở giá trị mặc định.
 
 ## Chạy test
 

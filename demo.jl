@@ -1,22 +1,33 @@
-# Chạy FPClose từ dòng lệnh:
-#   julia --project=. demo.jl --minsup 0.4 <file input>
-#   julia --project=. demo.jl --minsup 40% --output-closed out/closed.txt <file input>
-#   julia --project=. demo.jl --minsup 40% --output-all out/all.txt <file input>
-#   julia --project=. demo.jl --minsup 40% --rules out/rules.txt --minconf 0.6 --top 10 <file input>
-#   julia --project=. demo.jl --minsup-count 2 <file input>
-#
-# --minsup nhận tỉ lệ (0.4) hoặc phần trăm (40%) như SPMF; --minsup-count nhận số giao
-# dịch tuyệt đối. Phải có đúng một trong hai.
-# --output-closed (hoặc tên cũ --output): ghi closed frequent itemset, định dạng SPMF "1 2 #SUP: 3".
-# --output-all: ghi MỌI frequent itemset (chạy thêm bước recovery, xem src/recovery.jl).
-# --rules + --minconf [+ --top]: ghi luật kết hợp (cũng chạy recovery vì cần support của mọi tập con).
-# Không có tham số ghi file nào thì closed itemsets được in ra màn hình.
-# Thời gian của từng giai đoạn (mining, recovery, rules) in riêng ra stderr.
+# Chạy FPClose từ dòng lệnh: khai thác tập phổ biến đóng, tùy chọn khôi phục mọi tập phổ biến
+# và sinh luật kết hợp, rồi ghi kết quả theo định dạng SPMF.
+#   fail : in lỗi ra stderr rồi thoát với mã 2
+#   main : đọc tham số, chạy từng giai đoạn (mining, recovery, rules) và in thời gian riêng
+# Ví dụ:
+#   julia --project=. demo.jl --minsup 40% data/toy/pasquier99.txt
+#   julia --project=. demo.jl --minsup 40% --output-closed out/closed.txt --output-all out/all.txt <input>
+#   julia --project=. demo.jl --minsup 40% --rules out/rules.txt --minconf 0.6 --top 10 <input>
+# Recovery chạy khi có --output-all hoặc --rules. Không có tham số ghi file nào thì in tập đóng ra màn hình.
 
 using FPClose
 
+"""
+    fail(msg)
+
+In `Lỗi: msg` ra stderr rồi thoát với mã 2.
+
+- `msg` : nội dung lỗi
+"""
 fail(msg) = (println(stderr, "Lỗi: ", msg); exit(2))
 
+"""
+    main(args)
+
+Chạy chương trình với tham số dòng lệnh `args`: đọc cơ sở dữ liệu, khai thác tập đóng, và tùy theo
+tham số thì khôi phục mọi tập phổ biến và sinh luật; ghi các file kết quả và in số lượng cùng
+thời gian của từng giai đoạn ra stderr.
+
+- `args` : danh sách tham số dòng lệnh (xem `parse_cli_options`)
+"""
 function main(args)
     opts = try
         parse_cli_options(args)
@@ -28,7 +39,8 @@ function main(args)
     db = try
         read_spmf(opts.input)
     catch e
-        e isa ArgumentError || e isa MethodError || rethrow()
+        e isa ArgumentError && fail(e.msg)
+        e isa MethodError || rethrow()
         fail("không đọc được $(opts.input) theo định dạng SPMF (mỗi dòng là các số nguyên cách nhau dấu cách)")
     end
     isempty(db) && fail("file input không có giao dịch nào: $(opts.input)")
@@ -47,6 +59,7 @@ function main(args)
         write_spmf(stdout, closed)          # không có tham số ghi file nào: in ra màn hình như trước
     end
 
+    # Recovery cần cho --output-all và cho --rules (luật cần support của mọi tập con)
     if opts.output_all !== nothing || opts.rules !== nothing
         t_recovery = @elapsed all_fi = recover_all_frequent(closed)
         push!(info, :frequent_itemsets => length(all_fi), :recovery_seconds => round(t_recovery; digits = 4))

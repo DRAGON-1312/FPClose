@@ -1,19 +1,21 @@
-# recovery.jl
-# Khôi phục MỌI frequent itemset (kèm support) từ các closed frequent itemset.
-#
-# KHÔNG thuộc bài báo Grahne & Zhu: đây là module nhóm bổ sung, vì đề bài yêu cầu "xuất ra tất
-# cả frequent itemset và support tương ứng" còn FPClose chỉ xuất tập đóng
-# (xem docs/DEVIATIONS.md, mục "Recovery và luật kết hợp").
-#
-#   recover_all_frequent : closed => mọi frequent itemset
+# Khôi phục mọi tập phổ biến (kèm support) từ các tập phổ biến đóng. Đây là phần nhóm bổ sung,
+# vì FPClose chỉ xuất tập đóng.
+#   RecoveryLimitExceeded : lỗi khi số tập phổ biến vượt giới hạn
+#   recover_all_frequent  : hàm chính
+#   descend!              : duyệt các tập con của một CFI và gán support
 
 """
-Ngoại lệ do `recover_all_frequent(...; limit = n)` ném ra khi số frequent itemset vượt `n`.
+    RecoveryLimitExceeded
+
+Lỗi do `recover_all_frequent` ném ra khi số tập phổ biến vượt `limit`.
+
+- `limit` : giới hạn đã đặt
 """
 struct RecoveryLimitExceeded <: Exception
     limit::Int
 end
 
+# Thông báo hiển thị khi lỗi vượt giới hạn không được bắt
 Base.showerror(io::IO, e::RecoveryLimitExceeded) =
     print(io, "recover_all_frequent: số frequent itemset vượt giới hạn ", e.limit,
           " (dữ liệu quá dày hoặc minsup quá thấp để khôi phục)")
@@ -22,47 +24,25 @@ Base.showerror(io::IO, e::RecoveryLimitExceeded) =
     recover_all_frequent(closed; limit = nothing, visits = nothing)
         -> Vector{Pair{Vector{Int},Int}}
 
-Từ tập các closed frequent itemset `closed` (mỗi phần tử `itemset => support`, đúng định dạng
-`fpclose` trả về), khôi phục mọi frequent itemset khác rỗng kèm support. Kết quả sắp theo độ
-dài rồi từ điển (`sort_results!`), mỗi itemset sắp tăng dần.
+Từ các tập phổ biến đóng (CFI) khôi phục mọi tập phổ biến khác rỗng kèm support.
 
-# Cơ sở lý thuyết
+- `closed` : danh sách `itemset => support` của các CFI (kết quả của `fpclose`)
+- `limit`  : nếu có, ném `RecoveryLimitExceeded` khi số tập phổ biến vượt mức này
+- `visits` : nếu có (`Ref{Int}`), cộng dồn số lần duyệt tập con, dùng để kiểm tra việc cắt nhánh
 
-Gọi 𝒞 là tập các CFI (đã lọc theo minsup), sup(X) là support của X.
+Trả về danh sách `itemset => support`, itemset sắp tăng dần, danh sách sắp theo độ dài rồi từ điển.
 
-1. *Mọi FI là tập con của ít nhất một CFI, và mọi tập con khác rỗng của một CFI đều phổ biến.*
-   Chiều thuận: với FI X, đặt cl(X) là giao của mọi giao dịch chứa X. cl(X) ⊇ X, nằm trong cùng
-   các giao dịch nên sup(cl(X)) = sup(X) ≥ minsup, và không có tập cha thực sự nào của cl(X) giữ
-   nguyên support, nên cl(X) là một CFI. Chiều ngược: nếu X ⊆ C với C ∈ 𝒞 thì mọi giao dịch
-   chứa C đều chứa X, nên sup(X) ≥ sup(C) ≥ minsup.
+Cơ sở: (1) mọi tập phổ biến X là tập con của CFI cl(X) có cùng support, và mọi tập con của một
+CFI đều phổ biến. (2) support(X) = max support của các CFI chứa X, vì CFI chứa X có support không
+lớn hơn support(X) và cl(X) đạt đúng bằng.
 
-2. *sup(X) = max{ sup(C) : C ∈ 𝒞, X ⊆ C }* (cũng là support của CFI nhỏ nhất chứa X, tức cl(X)).
-   Với C ⊇ X thì sup(C) ≤ sup(X) (giao dịch chứa C thì chứa X). Dấu bằng đạt tại C = cl(X) ∈ 𝒞
-   (theo ý 1). Vậy lấy max trên mọi CFI chứa X cho đúng sup(X).
+Cách làm: xử lý CFI theo support giảm dần; với mỗi CFI duyệt các tập con và gán support cho tập
+con chưa có trong bảng, không bao giờ ghi đè. Nhờ thứ tự đó, lần gán đầu tiên chính là giá trị max.
+Duyệt theo hướng đi xuống (mỗi bước bỏ một item): gặp tập con đã có thì bỏ cả nhánh phía dưới,
+vì mọi tập con của nó đã được gán từ CFI trước đó với support không nhỏ hơn.
 
-# Thuật toán
-
-Sắp 𝒞 theo support GIẢM dần. Với mỗi CFI C (theo thứ tự đó), duyệt các tập con của C, gán
-support(C) cho tập con CHƯA có trong bảng, không bao giờ ghi đè. Vì các CFI được xử lý theo
-support giảm dần, tập con X lần đầu được gán bởi CFI C đầu tiên chứa X, và đó chính là CFI có
-support lớn nhất trong các CFI chứa X: giá trị gán đúng bằng max ở ý 2 (không cần so sánh lại).
-
-Duyệt tập con theo DFS *xuống* mạng con (xuất phát từ C, mỗi bước bỏ một item). Khi gặp tập con S
-đã có trong bảng thì bỏ qua cả nhánh dưới S: S đã được gán từ một CFI C' xử lý trước đó (support
-≥ support(C)), và khi đó mọi tập con của S cũng là tập con của C', nên đã được gán từ lúc xử lý
-C' (hoặc sớm hơn) với support ≥. Cắt nhánh này chỉ đúng với cách duyệt xuống: nếu duyệt
-"thêm item theo thứ tự tăng dần" thì tập cha của S trong C không nhất thiết đã được gán, nên
-không thể bỏ qua nhánh. Mỗi frequent itemset bị gán đúng một lần; số lần gọi hàm duyệt không
-vượt tổng độ dài các frequent itemset cộng với |𝒞|.
-
-# Cảnh báo kích thước
-
-Số frequent itemset có thể lớn hơn số CFI theo cấp số mũ: một CFI độ dài ℓ sinh ra tới 2^ℓ − 1
-tập con. Với dữ liệu dày (Chess, Accidents, Mushroom ở minsup thấp) recovery hết bộ nhớ hoặc rất
-chậm, nên chỉ khả thi ở minsup đủ cao. Tham số `limit` (tuỳ chọn) ném `RecoveryLimitExceeded`
-khi số FI vượt `limit` để tránh hết bộ nhớ.
-
-`visits` (tuỳ chọn, `Ref{Int}`): cộng dồn số lần gọi hàm duyệt, dùng để kiểm tra cắt nhánh.
+Lưu ý: số tập phổ biến có thể lớn hơn số CFI theo cấp số mũ (CFI dài ℓ item sinh tới 2^ℓ − 1 tập
+con), nên chỉ khả thi khi minsup đủ cao; dùng `limit` để tránh hết bộ nhớ.
 """
 function recover_all_frequent(closed;
                               limit::Union{Int,Nothing} = nothing,
@@ -76,8 +56,18 @@ function recover_all_frequent(closed;
     return sort_results!([k => v for (k, v) in table])
 end
 
-# DFS xuống mạng con: gán `sup` cho `s` nếu chưa có, rồi thử từng tập con bỏ một item.
-# Dùng ngăn xếp tường minh thay cho đệ quy để chịu được CFI dài.
+"""
+    descend!(table, root, sup, limit, visits) -> table
+
+Duyệt các tập con của `root` theo hướng đi xuống, gán `sup` cho tập con chưa có trong `table`.
+Dùng ngăn xếp thay cho đệ quy để chịu được CFI dài.
+
+- `table`  : bảng `itemset => support` đang xây
+- `root`   : CFI cần duyệt, sắp tăng dần
+- `sup`    : support của `root`
+- `limit`  : giới hạn số tập phổ biến hoặc `nothing`
+- `visits` : bộ đếm số lần duyệt hoặc `nothing`
+"""
 function descend!(table::Dict{Vector{Int},Int}, root::Vector{Int}, sup::Int,
                   limit::Union{Int,Nothing}, visits::Union{Base.RefValue{Int},Nothing})
     stack = Vector{Int}[root]

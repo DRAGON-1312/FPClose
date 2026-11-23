@@ -1,39 +1,36 @@
-# cfitree.jl
-# CFI-tree và kiểm tra đóng (Grahne & Zhu 2005, Section 4.1 tr. 1352–1354, Fig. 7;
-# cách khởi tạo và chèn nằm ở Section 3.2 tr. 1352–1353).
-#
-#   insert_cfi!      : chèn một CFI vào CFI-tree (count lấy MAX)
-#   closed_checking  : đã có CFI cha cùng count chưa? (TRUE = đã có = KHÔNG đóng)
-#   init_cfitree     : khởi tạo C_Y từ C_X cho lời gọi đệ quy (Fig. 8, dòng 15)
-#   cfi_list         : liệt kê các CFI đang lưu trong cây (để kiểm thử/đối chiếu Fig. 7)
-#
-# Quy ước "tương đối": C_X lưu mỗi CFI S ⊇ X dưới dạng phần còn lại của S,
-# chỉ giữ các item có trong header của C_X (tức header của T_X). Các item
-# khác không bao giờ xuất hiện trong ứng viên sẽ kiểm tra ở C_X, nên bỏ đi
-# không làm sai phép thử "S ⊇ ứng viên" (xem docs/DEVIATIONS.md, mục 6).
-# Gốc của C_X giữ count lớn nhất trong mọi CFI đã chèn: đó là câu trả lời cho
-# câu hỏi "X có tập cha nào cùng count không?" (ứng viên rỗng).
+# CFI-tree và kiểm tra tính đóng của itemset.
+#   relative_items  : phần của một itemset mà một CFI-tree lưu được
+#   insert_cfi!     : chèn một CFI vào CFI-tree
+#   closed_checking : kiểm tra đã có CFI nào bao trùm itemset với cùng count chưa
+#   init_cfitree    : tạo CFI-tree con từ CFI-tree cha cho lời gọi đệ quy
+#   cfi_list        : liệt kê các CFI đang lưu trong cây (dùng khi test)
+#   node_count      : đếm số nút của cây (không tính gốc)
+# Quy ước "tương đối": CFI-tree của X lưu mỗi CFI dưới dạng phần còn lại sau khi bỏ X, và chỉ
+# giữ các item có trong header của cây. Các item khác không bao giờ xuất hiện trong itemset
+# cần kiểm tra ở cây này nên bỏ đi không làm sai kết quả. Count của gốc là count lớn nhất
+# trong mọi CFI đã chèn, dùng để kiểm tra chính X.
 
 """
-    relative_items(C, itemset)
+    relative_items(C, itemset) -> Vector{Int}
 
-Phần của `itemset` mà `C` lưu được: giữ item có trong header của `C`,
-sắp theo thứ tự header. Item của `C.base` không nằm trong header nên tự bị bỏ.
-Tương ứng "B ∪ (Y_j − Y_k)" chèn vào cây của Y_k (Sec 3.2, tr. 1353).
+Phần của `itemset` mà `C` lưu được: giữ các item có trong header của `C` (item của `C.base`
+không nằm trong header nên tự bị bỏ), sắp theo thứ tự header.
+
+- `C`       : CFI-tree
+- `itemset` : itemset đầy đủ
 """
 relative_items(C::CFITree, itemset) =
     sort!([i for i in itemset if haskey(C.rank, i)]; by = i -> C.rank[i])
 
 """
-    insert_cfi!(C, items, count)
+    insert_cfi!(C, items, count) -> C
 
-Sec 4.1, tr. 1354: "The insertion of a CFI into a CFI-tree is similar to the insertion
-of a transaction into an FP-tree, except now the count of a node is not incremented,
-but replaced by the maximal count up-to-date."
+Chèn một CFI vào CFI-tree. Count của mỗi nút trên đường đi là max(count cũ, `count`), KHÔNG
+cộng dồn như FP-tree. Count của gốc cũng được cập nhật theo cách đó.
 
-Chèn `items` (dạng tương đối, sắp theo `C.rank`) với `count` vào `C`. Count của mỗi
-nút trên đường đi là max(count cũ, count mới), không cộng dồn (Fig. 7a: nút d từ 2
-lên 3). Gốc cũng được cập nhật để trả lời ứng viên rỗng.
+- `C`     : CFI-tree
+- `items` : CFI ở dạng tương đối, sắp theo `C.rank`
+- `count` : support của CFI
 """
 function insert_cfi!(C::CFITree, items::Vector{Int}, count::Int)
     node = C.root
@@ -51,41 +48,35 @@ function insert_cfi!(C::CFITree, items::Vector{Int}, count::Int)
 end
 
 """
-    closed_checking(C, items, count) -> Bool
+    closed_checking(C, items, count; exact_count = true, stats = nothing) -> Bool
 
-Hàm `closed_checking(Y, C)` của Fig. 8 (dòng 4 và 8), mô tả ở Sec 4.1 tr. 1354.
-`items` là phần tương đối của Y = C.base ∪ items, sắp theo `C.rank`.
+Kiểm tra trong `C` đã có CFI nào chứa itemset đang xét với cùng count chưa.
+Trả về `true` nếu đã có, tức itemset KHÔNG đóng; `false` nếu chưa có.
 
-**Trả `true` khi ĐÃ CÓ trong `C` một CFI Z ⊇ Y với count(Z) = `count`, tức Y KHÔNG đóng**;
-trả `false` khi chưa có, tức Y đóng so với các CFI đã tìm.
+- `C`           : CFI-tree
+- `items`       : phần tương đối của itemset (itemset = `C.base` ∪ `items`), sắp theo `C.rank`;
+                  rỗng nghĩa là hỏi về chính `C.base`
+- `count`       : support của itemset
+- `exact_count` : `true` thì chỉ xét nút có count đúng bằng `count`; `false` xét nút có count ≥ `count`
+- `stats`       : một `FPCloseStats` hoặc `nothing`; nếu có thì `subset_tests` được cộng thêm 1 cho
+                  mỗi nút phải đi ngược lên kiểm tra tập con
 
-Vì sao chọn cực tính này (bài báo tự mâu thuẫn):
-- Fig. 8 viết `if not closed_checking(Y, C)` rồi mới chèn Y (dòng 4) hoặc mới đệ quy
-  (dòng 8). Chỉ đọc được nếu hàm trả true khi Y KHÔNG đóng.
-- `maximality_checking` ở Sec 3.2 (tr. 1352) cũng trả true khi itemset là tập con của
-  một MFI đã có, và FPmax* dùng `if not maximality_checking` y như vậy.
-- Ngược lại, câu chữ Sec 4.1 ("returns true only when there is no existing CFI Z …")
-  nói true khi Y đóng. Ta theo Fig. 8 và Sec 3.2 để code đọc giống mã giả.
-- Cùng câu đó còn viết "the count of Y is equal to or greater than the count of Z",
-  bị ngược: tập cha Z không thể có count lớn hơn Y. Điều kiện thực chất là bằng nhau;
-  so với count của nút trong cây thì là `count(nút) ≥ count(Y)` như câu trước đó của
-  bài báo ("check if its count is equal to or greater than c").
-
-Cách làm (Sec 4.1, giống `maximality_checking`):
-1. Mọi tập cha phải chứa item cuối ik, nên chỉ xét các nút trên node-link của ik.
-2. Bỏ nút có count < `count`: mọi CFI đi qua nút đều có count ≤ count của nút.
-3. Bỏ nút có level < k: đường từ gốc không đủ dài để chứa k item ("level" dùng để
-   tiết kiệm phép so sánh, tr. 1354).
-4. Đi ngược lên cha, tìm lần lượt i(k-1), ..., i1. Rank giảm dần khi đi lên,
-   nên gặp nút có rank nhỏ hơn item đang cần tìm là biết chắc không có.
-`items` rỗng: hỏi về chính base X, câu trả lời nằm ở count của gốc.
+Cách làm: mọi tập cha phải chứa item cuối của `items` nên chỉ duyệt node-link của item đó.
+Count của nút là count lớn nhất trong các CFI đi qua nút. Nếu đường từ gốc tới nút chứa itemset
+thì mọi CFI đi qua nút đều là tập cha của itemset, nên count của chúng không vượt `count`; vì vậy
+nút khớp chỉ có thể có count đúng bằng `count`, và nút có count lớn hơn bị loại ngay mà không cần
+kiểm tra tập con (kết quả không đổi so với `>=`, chỉ bớt việc). Cũng bỏ nút có `level` nhỏ hơn số
+item cần tìm. Từ mỗi nút còn lại đi ngược lên cha để tìm các item còn lại; rank giảm dần khi đi
+lên nên gặp rank nhỏ hơn item đang cần là biết chắc không có.
 """
-function closed_checking(C::CFITree, items::Vector{Int}, count::Int)
+function closed_checking(C::CFITree, items::Vector{Int}, count::Int;
+                         exact_count::Bool = true, stats = nothing)
     k = length(items)
-    k == 0 && return C.root.count >= count
+    k == 0 && return exact_count ? C.root.count == count : C.root.count >= count
     for n in nodelink(C, items[k])
-        n.count < count && continue
+        (exact_count ? n.count != count : n.count < count) && continue
         n.level < k && continue
+        stats === nothing || (stats.subset_tests += 1)
         idx = k - 1
         p = n.parent
         while idx > 0 && p.item != ROOT_ITEM
@@ -97,30 +88,22 @@ function closed_checking(C::CFITree, items::Vector{Int}, count::Int)
             end
             p = p.parent
         end
-        idx == 0 && return true         # tìm thấy tập cha cùng count: Y không đóng
+        idx == 0 && return true         # tìm thấy tập cha cùng count: itemset không đóng
     end
     return false
 end
 
 """
-    init_cfitree(C, item, ty)
+    init_cfitree(C, item, ty) -> CFITree
 
-Fig. 8 dòng 15: "initialize Y's conditional CFI-tree C_Y"; Sec 4.1 tr. 1354 nói
-"CFI-trees are initialized similarly to MFI-trees, described in Section 3.2".
-Sec 3.2 tr. 1353: "The initialization can be done by following the linked list for
-i_j from the header table of M_{Y_{j-1}} and extracting the maximal frequent itemsets
-containing i_j. Each such found itemset I is sorted according to the order of items in
-M_{Y_j}.header … and then inserted into M_{Y_j}."
+Tạo CFI-tree cho cây điều kiện `ty` của Y = `C.base` ∪ {`item`}, nạp sẵn mọi CFI đã biết có chứa Y.
 
-Ở đây: tạo C_Y cho T_Y (Y = C.base ∪ {item}) rồi nạp mọi CFI đã biết có chứa Y.
-Các CFI chứa `item` là các đường đi qua một nút của `item` trong `C`. Với mỗi
-nút n trên node-link của `item`, xét mọi nút m trong cây con của n (kể cả n):
-tập = (tổ tiên của n) ∪ (đường từ n xuống m) bỏ `item`, count = count của m.
-Chỉ cần chèn khi m là lá hoặc count(m) lớn hơn count mọi con của m; các
-trường hợp còn lại đã được một nhánh con dài hơn với cùng count bao trùm.
-(Bài báo "extract" từ danh sách CFI; ở đây đọc lại từ cây, tương đương vì cây
-chứa đủ thông tin, xem docs/DEVIATIONS.md mục 6.) Việc sắp "theo header mới" do
-`relative_items(cy, …)` làm: thứ tự item của T_Y có thể khác T_X (Sec 2.1 tr. 1349).
+- `C`    : CFI-tree cha
+- `item` : item mở rộng thêm vào `C.base`
+- `ty`   : FP-tree điều kiện của Y (cho thứ tự item của cây mới)
+
+Các CFI chứa `item` là những đường đi qua một nút của `item` trong `C`; với mỗi nút đó duyệt
+cây con của nó để lấy lại các CFI, sắp theo thứ tự item của `ty` (có thể khác `C`) rồi chèn.
 """
 function init_cfitree(C::CFITree, item::Int, ty::FPTree)
     cy = CFITree(ty)
@@ -131,11 +114,26 @@ function init_cfitree(C::CFITree, item::Int, ty::FPTree)
     return cy
 end
 
+"""
+    collect_paths!(cy, m, path) -> cy
+
+Duyệt cây con của `m` và chèn các CFI tìm được vào `cy`. Một CFI kết thúc đúng tại nút có count
+lớn hơn count của mọi con (nút lá cũng vậy); các nút còn lại đã được nhánh con dài hơn cùng
+count bao trùm nên không cần chèn.
+
+- `cy`   : CFI-tree đích
+- `m`    : nút đang xét
+- `path` : các item từ gốc đến `m` (bỏ item đang mở rộng). Dùng chung một mảng cho cả cuộc duyệt:
+           thêm item trước khi đệ quy xuống con và bỏ đi sau đó, nên khi trả về mảng giữ nguyên
+           như lúc vào; không giữ tham chiếu tới `path` sau khi chèn
+"""
 function collect_paths!(cy::CFITree, m::CFINode, path::Vector{Int})
     best_child = 0
     for c in values(m.children)
         best_child = max(best_child, c.count)
-        collect_paths!(cy, c, push!(copy(path), c.item))
+        push!(path, c.item)
+        collect_paths!(cy, c, path)
+        pop!(path)
     end
     if m.count > best_child
         insert_cfi!(cy, relative_items(cy, path), m.count)
@@ -146,21 +144,43 @@ end
 """
     cfi_list(C) -> Vector{Pair{Vector{Int},Int}}
 
-Liệt kê các CFI (dạng tương đối) đang lưu trong `C`, mỗi CFI kèm count.
-Một CFI kết thúc đúng tại nút có count lớn hơn count mọi con (hoặc nút lá): nếu
-có con cùng count thì tập con dài hơn đó là CFI cha cùng support, mâu thuẫn tính
-đóng. Dùng để đối chiếu với Fig. 7b (C_∅ của CSDL Fig. 1 có 14 CFI).
+Liệt kê các tập đang lưu trong `C` (dạng tương đối) kèm count. Một tập kết thúc tại nút có
+count lớn hơn count của mọi con, vì nếu có con cùng count thì tập dài hơn đó bao trùm nó.
+Với CFI-tree đầy đủ đó chính là các CFI; với CFI-tree rút gọn, mỗi tập đã bị bỏ bớt item dùng để
+mở rộng xuống tầng dưới nên không phải CFI nguyên vẹn.
+
+- `C` : CFI-tree
 """
 function cfi_list(C::CFITree)
     out = Pair{Vector{Int},Int}[]
+    # `path` dùng chung cho cả cuộc duyệt (thêm trước khi đệ quy, bỏ sau đó); chỉ sao chép khi lưu vào `out`
     walk(m, path) = begin
         best_child = 0
         for c in values(m.children)
             best_child = max(best_child, c.count)
-            walk(c, push!(copy(path), c.item))
+            push!(path, c.item)
+            walk(c, path)
+            pop!(path)
         end
         m.count > best_child && push!(out, copy(path) => m.count)
     end
     walk(C.root, Int[])
     return out
+end
+
+"""
+    node_count(C) -> Int
+
+Số nút của CFI-tree `C`, không tính nút gốc.
+
+- `C` : CFI-tree
+"""
+function node_count(C::CFITree)
+    total = 0
+    for item in keys(C.head)
+        for _ in nodelink(C, item)
+            total += 1
+        end
+    end
+    return total
 end

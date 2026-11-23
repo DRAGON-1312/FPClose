@@ -14,9 +14,9 @@ tmp = mktempdir()
 cp(SRC, joinpath(tmp, "src"))
 target = joinpath(tmp, "src", "algorithm", "fpclose.jl")
 code = read(target, String)
-from = "if !isempty(T.base) && !check!(stats, C, Int[], T.base_count)"
+from = "if !isempty(T.base) && !check!(stats, C, Int[], T.base_count"
 occursin(from, code) || error("không tìm thấy dòng ghi X trong fpclose.jl; cập nhật script này")
-write(target, replace(code, from => "if false && !check!(stats, C, Int[], T.base_count)"))
+write(target, replace(code, from => "if false && !check!(stats, C, Int[], T.base_count"))
 
 include(joinpath(tmp, "src", "FPClose.jl"))
 using .FPClose

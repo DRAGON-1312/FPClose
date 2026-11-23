@@ -35,7 +35,7 @@ Previous five-dataset MANIFEST creation: 2026-11-20T22:15:26+00:00
 - Original URL: https://www.philippe-fournier-viger.com/spmf/publicdatasets/chess.txt
 - Raw SHA-256: `a12ea887df58a396709430af5bf0a9a32d1f6eba8e7c13dd41f28b98572c5db2`
 - Normalized SHA-256: `341d0ff8676e053dd3b417d61f84c732736154f987ce56975a099b07460957f5`
-- Item-ID offset: `0` (inferred — see "Item-ID offset of the first five datasets" below)
+- Item-ID offset: `0` (verified by reproduction — see "Item-ID offset of the first five datasets" below)
 - Measured transactions: `3196`
 - Preparation: inherited from the original 5-dataset notebook; original file retained.
 
@@ -45,7 +45,7 @@ Previous five-dataset MANIFEST creation: 2026-11-20T22:15:26+00:00
 - Original URL: https://www.philippe-fournier-viger.com/spmf/publicdatasets/mushrooms.txt
 - Raw SHA-256: `3bc1159b06baa231932810d1d58cbb958684be88b6daa8e3672f8d76c5f0eb98`
 - Normalized SHA-256: `37a11571574d74bd1659c830a1e30e120485c6994b79f32e3b6635621a229bf7`
-- Item-ID offset: `0` (inferred — see "Item-ID offset of the first five datasets" below)
+- Item-ID offset: `0` (verified by reproduction — see "Item-ID offset of the first five datasets" below)
 - Measured transactions: `8416`
 - Preparation: inherited from the original 5-dataset notebook; original file retained.
 
@@ -55,7 +55,7 @@ Previous five-dataset MANIFEST creation: 2026-11-20T22:15:26+00:00
 - Original URL: https://www.philippe-fournier-viger.com/spmf/publicdatasets/retail.txt
 - Raw SHA-256: `732c26de19888cb570d3fbb97e47206a9b1c0ce064f85dc1403314ba38f04eaa`
 - Normalized SHA-256: `417563fb5feb3711d4f761230ca78b76d100fe2ee0d3178fcc4fbb000d8d1c36`
-- Item-ID offset: `0` (inferred — see "Item-ID offset of the first five datasets" below)
+- Item-ID offset: `0` (verified by reproduction — see "Item-ID offset of the first five datasets" below)
 - Measured transactions: `88162`
 - Preparation: inherited from the original 5-dataset notebook; original file retained.
 
@@ -65,7 +65,7 @@ Previous five-dataset MANIFEST creation: 2026-11-20T22:15:26+00:00
 - Original URL: https://www.philippe-fournier-viger.com/spmf/publicdatasets/T10I4D100K.txt
 - Raw SHA-256: `949983f61aa976d1b774474fadd31c5f15775b24728a5e7c8b79801822ab3f89`
 - Normalized SHA-256: `fb2dd118ff822ff88d724e47d5a4cea6531c0bd6294397db4d36890c1450f1a7`
-- Item-ID offset: `0` (inferred — see "Item-ID offset of the first five datasets" below)
+- Item-ID offset: `0` (verified by reproduction — see "Item-ID offset of the first five datasets" below)
 - Measured transactions: `100000`
 - Preparation: inherited from the original 5-dataset notebook; original file retained.
 
@@ -75,7 +75,7 @@ Previous five-dataset MANIFEST creation: 2026-11-20T22:15:26+00:00
 - Original URL: https://www.philippe-fournier-viger.com/spmf/publicdatasets/accidents.txt
 - Raw SHA-256: `8c2275550966e3cb4b6066f2bb168489a9566c500af559fa3925f1b11d97f0cd`
 - Normalized SHA-256: `c2b3762e3f8f0ca241c35359b24e3015fd34ea241d09f94b42ae44ed42914726`
-- Item-ID offset: `0` (inferred — see "Item-ID offset of the first five datasets" below)
+- Item-ID offset: `0` (verified by reproduction — see "Item-ID offset of the first five datasets" below)
 - Measured transactions: `340183`
 - Preparation: inherited from the original 5-dataset notebook; original file retained.
 
@@ -130,12 +130,10 @@ Previous five-dataset MANIFEST creation: 2026-11-20T22:15:26+00:00
 ## Item-ID offset of the first five datasets
 
 The historical records of chess, mushrooms, retail, T10I4D100K and accidents say
-`unknown_original_not_logged`. The offset is recorded as `0` because the
-normalization code raises an error on any item ID ≤ 0 and never shifts IDs, so a
-successful run implies the raw IDs were already positive and unchanged.
-This is an inference from the code, not a byte-level reproduction; notebook
-`01_Data_Preparation.ipynb` §7 can confirm it by re-normalizing the raw files and
-comparing SHA-256.
+`unknown_original_not_logged`. On 2026-11-23 all 9 raw files were downloaded again from
+the URLs above and re-normalized with `data/scripts/download_and_normalize.jl`
+(Julia): 9/9 raw SHA-256 matched, and with offset `0` for these five datasets the
+normalized SHA-256 and transaction counts matched the values above byte for byte.
 
 ## Public copy
 
@@ -158,6 +156,11 @@ The group did not create these datasets. They are redistributed only to make the
 - Original licenses and citations of each source apply.
 
 ## Reproducibility
-- Re-run Colab notebooks, record exact SHA-256 values, and use only normalized files for comparison.
-- Original five-dataset preparation and four-dataset extension should be retained together.
+- Julia scripts in `data/scripts/` reproduce every file from the original sources:
+  `download_and_normalize.jl` (9 datasets), `make_retail_subsets.jl`, `gen_synthetic.jl`
+  (a port of Python's `random.Random`, so the published subsets and synthetic files are reproduced exactly),
+  `dataset_stats.jl`, `verify_hf.jl`.
+- `data/notebooks/data_setup.ipynb` runs the whole pipeline (any Julia kernel) and checks each file
+  with the recorded hashes. Verified 2026-11-23: 9/9 normalized datasets, 9/9 statistics,
+  6/6 synthetic and 5/5 Retail subsets identical.
 - Record minsup grid and SPMF correctness tests separately; not yet verified by preparation alone.

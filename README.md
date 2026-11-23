@@ -220,6 +220,50 @@ Các công tắc cũng có sẵn trong API: `fpclose(db, minsup; fparray = false
 prune_line8 = true, exact_count = true, reduced_cfitree = true)`. Mặc định bật hết; `benchmark.jl` chỉ
 bật/tắt ba công tắc đầu, hai công tắc sau (`exact_count`, `reduced_cfitree`) luôn ở giá trị mặc định.
 
+## Chạy lưới benchmark (Chương 2)
+
+`scripts/run_benchmark_grid.jl` chạy cả lưới đo của Chương 2 (không vẽ biểu đồ). Cần Java và `tools/spmf.jar`,
+dữ liệu đã tạo bằng `scripts/data_setup.jl`.
+
+```
+julia --project=. scripts/run_benchmark_grid.jl                      # cả 5 phần, 56 cấu hình, 3 lần, timeout 600 s/lần
+julia --project=. scripts/run_benchmark_grid.jl --quick              # bản rút gọn (chess + mushrooms), vài phút, file có đuôi _quick
+julia --project=. scripts/run_benchmark_grid.jl --datasets chess --only runtime,correctness
+julia --project=. scripts/run_benchmark_grid.jl --runs 1 --timeout 120
+```
+
+| Tham số | Ý nghĩa |
+|---|---|
+| `--only` | Chọn phần, cách nhau bằng dấu phẩy: `correctness`, `runtime`, `memory`, `scalability`, `txlen` (mặc định: cả 5). `txlen_pilot` chạy thử các mức minsup của txlen. |
+| `--datasets` | Giới hạn dataset của `correctness`, `runtime`, `memory` (`scalability` và `txlen` dùng dữ liệu cố định, bỏ qua tham số này). |
+| `--runs`, `--timeout` | Số lần đo (mặc định 3) và timeout mỗi lần chạy, tính bằng giây (mặc định 600). Quá hạn thì ghi `TIMEOUT` và chạy tiếp. |
+| `--quick` | chess + mushrooms, 2–3 mức minsup, 1 lần đo. File kết quả có hậu tố `_quick`. |
+| `--suffix`, `--machine` | Hậu tố tên file kết quả; tên máy ghi vào cột `machine` (mặc định tên máy hoặc biến `FPCLOSE_MACHINE`). |
+| `--fi-limit`, `--txlen-minsups`, `--scal-minsups` | Giới hạn số FI khi so mọi FI (mặc định 2.000.000), các mức minsup (%) của txlen (mặc định 0.5,0.2) và của scalability (mặc định 0.1,0.05). |
+| `--no-skip-after-timeout` | Không bỏ qua các minsup thấp hơn sau khi một công cụ đã TIMEOUT ở minsup cao hơn của cùng dataset. |
+
+Chạy tiếp được: dòng đã có trạng thái `OK`, `TIMEOUT` hoặc `SKIPPED` trong file CSV không bị chạy lại, dòng `FAILED` được
+chạy lại. Log ở `out/grid.log`; cấu hình máy ở `results/ENVIRONMENT.md`.
+
+| Phần | Nội dung | Kết quả |
+|---|---|---|
+| `correctness` | So từng itemset và support của `fpclose` với SPMF FPClose trên 56 cấu hình; kiểm thêm mọi FI (`recover_all_frequent` so với SPMF FPGrowth) ở minsup cao nhất của mỗi dataset, `SKIPPED` kèm lý do nếu vượt `--fi-limit`. | `results/correctness/grid_correctness.csv` |
+| `runtime` | Thời gian và bộ nhớ của nhóm (tùy chọn mặc định) và SPMF trên 56 cấu hình. | `results/runtime/grid_runtime.csv` (+ `README.md` giải thích cột) |
+| `memory` | Ở minsup giữa của mỗi dataset: bản cơ bản (tắt hết), bản theo bài báo (chỉ `prune_line8`), bản tối ưu (mặc định) và bản tắt riêng từng tối ưu; mọi bộ đếm `FPCloseStats`; kiểm mọi biến thể ra cùng tập đóng. | `results/memory/basic_vs_optimized.csv` |
+| `scalability` | Retail con 10%…100%, hai mức minsup tương đối. | `results/scalability/scalability.csv` |
+| `txlen` | CSDL tổng hợp theo độ dài giao dịch 5…30. | `results/txlen/txlen.csv` (+ `README.md` giải thích cách chọn minsup) |
+
+**Cách đo.** Mỗi lần đo của nhóm chạy trong một tiến trình Julia riêng, đã warm-up trên dữ liệu nhỏ để loại thời gian biên dịch.
+Đồng hồ chỉ bắt đầu sau warm-up và tách `read_s` (đọc), `mine_s` (khai thác), `write_s` (`write_spmf`).
+`time_with_write_s` GỒM bước ghi file (dùng để so với SPMF, vì "Total time" của SPMF đã gồm ghi output);
+`time_no_write_s` KHÔNG gồm ghi file (SPMF để trống). Việc đọc lại hai file output và so từng itemset làm sau khi dừng
+đồng hồ, không tính vào thời gian.
+
+**Bộ nhớ.** Nhóm: `Sys.maxrss()` (RSS đỉnh) của tiến trình riêng, kèm số đo nền (`baseline_mem_mb`, tiến trình chỉ warm-up)
+và `mem_delta_mb = peak − baseline`. Lưu ý: (1) nền khoảng 290 MB nên với cấu hình nhỏ mức tăng chỉ vài chục MB, `maxrss` là
+đỉnh nên không phân biệt được các biến thể gần nhau, hãy dùng thêm cột `alloc_mb` (tổng bộ nhớ cấp phát) và các bộ đếm;
+(2) SPMF báo "Max memory usage" của heap JVM, KHÔNG phải RSS, nên không so trực tiếp với số của nhóm.
+
 ## Chạy test
 
 ```

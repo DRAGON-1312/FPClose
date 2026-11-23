@@ -131,7 +131,7 @@ Previous five-dataset MANIFEST creation: 2026-11-20T22:15:26+00:00
 
 The historical records of chess, mushrooms, retail, T10I4D100K and accidents say
 `unknown_original_not_logged`. On 2026-11-23 all 9 raw files were downloaded again from
-the URLs above and re-normalized with `data/scripts/download_and_normalize.jl`
+the URLs above and re-normalized with `data/notebooks/data_setup.ipynb`
 (Julia): 9/9 raw SHA-256 matched, and with offset `0` for these five datasets the
 normalized SHA-256 and transaction counts matched the values above byte for byte.
 
@@ -146,7 +146,7 @@ normalized SHA-256 and transaction counts matched the values above byte for byte
 - `data/scalability/retail_p010..p100.txt`: nested Retail subsets (seed 2026, size `n*p//100`).
 - `data/synthetic/len05..len30.txt`: 6 correlated synthetic datasets (10,000 transactions, 500 items, seed 2026);
   statistics in `data/synthetic/synthetic_statistics.csv`.
-- SHA-256 and line counts: `data/results/derived_hashes.csv`. These files are not committed; regenerate them with `data/scripts/`.
+- SHA-256 and line counts: `data/results/derived_hashes.csv`. These files are not committed; regenerate them with `data/notebooks/data_setup.ipynb`.
 
 ## License and attribution
 
@@ -156,11 +156,13 @@ The group did not create these datasets. They are redistributed only to make the
 - Original licenses and citations of each source apply.
 
 ## Reproducibility
-- Julia scripts in `data/scripts/` reproduce every file from the original sources:
-  `download_and_normalize.jl` (9 datasets), `make_retail_subsets.jl`, `gen_synthetic.jl`
-  (a port of Python's `random.Random`, so the published subsets and synthetic files are reproduced exactly),
-  `dataset_stats.jl`, `verify_hf.jl`.
-- `data/notebooks/data_setup.ipynb` runs the whole pipeline (any Julia kernel) and checks each file
-  with the recorded hashes. Verified 2026-11-23: 9/9 normalized datasets, 9/9 statistics,
-  6/6 synthetic and 5/5 Retail subsets identical.
-- Record minsup grid and SPMF correctness tests separately; not yet verified by preparation alone.
+- `data/notebooks/data_setup.ipynb` (Julia, self-contained) reproduces every file from the original
+  sources: download and normalization of the 9 datasets, statistics, Retail subsets and synthetic datasets
+  (with a port of Python's `random.Random`, so the published subsets and synthetic files are reproduced exactly).
+  Each file is checked against the recorded hashes. Verified 2026-11-23: 9/9 normalized datasets,
+  9/9 statistics, 6/6 synthetic and 5/5 Retail subsets identical.
+- `data/notebooks/reference_check.ipynb` (Julia, self-contained) runs SPMF FPClose and the original FIMI
+  FPclose (Grahne & Zhu, `fimi06b.tgz`) on the 56 configurations of `data/results/benchmark_config.csv`.
+  Verified 2026-11-23: SPMF matched `reference_closed_itemsets` in 56/56 configurations, and SPMF and FIMI
+  produced identical closed itemsets and supports in 56/56. This validates the data and the reference tools,
+  not the group's implementation.

@@ -4,7 +4,7 @@ Ghi tự động bởi `scripts/run_benchmark_grid.jl` ở lần chạy gần nh
 
 | Mục | Giá trị |
 |---|---|
-| Cập nhật lúc (UTC) | 2026-11-23 15:03:32 |
+| Cập nhật lúc (UTC) | 2026-11-24 00:31:29 |
 | Nhãn máy | MSI |
 | Hệ điều hành | NT (x86_64-w64-mingw32) |
 | CPU | AMD Ryzen 9 8940HX with Radeon Graphics         |
@@ -14,7 +14,7 @@ Ghi tự động bởi `scripts/run_benchmark_grid.jl` ở lần chạy gần nh
 | Java | openjdk version "25.0.5.1" 2026-11-17 LTS |
 | spmf.jar SHA-256 | `bb371b99b3bfd58fbce6b92e0ea3ccda5f9d1fd173bfe8e40f177672117159ba` |
 | JVM heap (-Xmx) | 4g |
-| Commit | 9ac5d36 (có thay đổi chưa commit) |
+| Commit | 5434a47 (có thay đổi chưa commit) |
 | Số lần đo mỗi cấu hình | 3 (tổng hợp lấy nhỏ nhất) |
 | Timeout mỗi lần chạy | 600 s |
 | Chế độ | đầy đủ |

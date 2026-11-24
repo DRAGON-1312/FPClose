@@ -3,7 +3,9 @@
 #   sort_by_rank     : lọc và sắp item theo thứ tự header của cây
 #   build_fptree     : dựng cây gốc T_∅ từ cơ sở dữ liệu bằng 2 lần quét
 #   pattern_base     : conditional pattern base của một item (dùng khi test, không dùng khi dựng cây)
-#   prefix_items!    : lấy các item trên đường lên gốc của một nút vào bộ đệm
+#   prefix_items!    : lấy các item trên đường lên gốc của một nút vào bộ đệm (bản tra Dict, giữ cho tương thích)
+#   prefix_ranks!    : như trên nhưng trả hạng trong cây đích qua bảng ánh xạ hạng (dùng trong conditional_tree)
+#   transaction_ranks! : lọc, bỏ trùng, sắp một giao dịch theo header bằng hạng (dùng trong build_fptree)
 #   conditional_tree : dựng cây điều kiện T_Y với Y = base ∪ {item}
 
 """
@@ -76,17 +78,12 @@ function build_fptree(db::Vector{Vector{Int}}, minsup::Int,
     fill = cfg !== nothing && cfg.skip_items < m <= cfg.max_items
     A = fill ? new_fparray(m) : nothing
     ranks = Int[]
+    items = Int[]
     for t in db                                  # lần quét 2
-        items = sort_by_rank(tree, unique(t))
+        transaction_ranks!(ranks, items, tree, t)   # = sort_by_rank(tree, unique(t)) và rank tương ứng
         isempty(items) && continue
         insert_path!(tree, items, 1, levels)
-        if fill
-            resize!(ranks, length(items))
-            for (k, x) in enumerate(items)
-                ranks[k] = tree.rank[x]
-            end
-            accumulate_pairs!(A, ranks, 1, cfg.skip_items)
-        end
+        fill && accumulate_pairs!(A::Vector{Int32}, ranks, 1, cfg.skip_items)
     end
     if cfg !== nothing
         tree.dense = is_dense(levels, cfg.dense_ratio)
@@ -96,6 +93,36 @@ function build_fptree(db::Vector{Vector{Int}}, minsup::Int,
         end
     end
     return tree
+end
+
+"""
+    transaction_ranks!(ranks, items, t, tx) -> items
+
+Ghi vào `ranks` hạng (tăng dần, không trùng) của các item phổ biến trong giao dịch `tx` theo header của `t`, và vào
+`items` các item tương ứng. Kết quả `items` bằng `sort_by_rank(t, unique(tx))`, nhưng mỗi item chỉ tra `t.rank` một
+lần và sắp mảng Int thay vì sắp với hàm `by` tra `Dict`. Hai bộ đệm được dùng lại cho mọi giao dịch.
+"""
+function transaction_ranks!(ranks::Vector{Int}, items::Vector{Int}, t::FPTree, tx::Vector{Int})
+    empty!(ranks)
+    for x in tx
+        r = get(t.rank, x, 0)
+        r > 0 && push!(ranks, r)
+    end
+    sort!(ranks)
+    w = 0                                        # bỏ hạng trùng liền kề (giao dịch có item lặp)
+    @inbounds for k in eachindex(ranks)
+        r = ranks[k]
+        if w == 0 || ranks[w] != r
+            w += 1
+            ranks[w] = r
+        end
+    end
+    resize!(ranks, w)
+    resize!(items, w)
+    @inbounds for k in 1:w
+        items[k] = t.items[ranks[k]]
+    end
+    return items
 end
 
 """
@@ -132,6 +159,27 @@ function prefix_items!(buf::Vector{Int}, ty::FPTree, node::FPNode)
 end
 
 """
+    prefix_ranks!(buf, rmap, node) -> buf
+
+Bản dùng mảng của `prefix_items!`: ghi vào `buf` (xóa nội dung cũ) HẠNG trong cây đích của các item trên đường từ
+gốc tới cha của `node`, bỏ item không phổ biến ở cây đích, rồi sắp tăng dần (cùng thứ tự với `prefix_items!`).
+
+- `buf`  : bộ đệm dùng lại
+- `rmap` : `rmap[r]` = hạng trong cây đích của item có hạng `r` trong cây cha (0 = không có trong cây đích)
+- `node` : nút của FP-tree cha
+"""
+function prefix_ranks!(buf::Vector{Int}, rmap::Vector{Int}, node::FPNode)
+    empty!(buf)
+    p = node.parent
+    while p !== nothing && p.item != ROOT_ITEM
+        @inbounds rc = rmap[p.rank]              # p thuộc cây cha nên 1 ≤ p.rank ≤ length(rmap)
+        rc > 0 && push!(buf, rc)
+        p = p.parent
+    end
+    return sort!(buf)
+end
+
+"""
     conditional_tree(t, item, minsup, cfg = nothing; stats = nothing) -> FPTree
 
 Dựng cây điều kiện T_Y của Y = `t.base` ∪ {`item`}. Không dựng sẵn pattern base trong bộ nhớ mà
@@ -165,15 +213,21 @@ function conditional_tree(t::FPTree, item::Int, minsup::Int,
         counts = tail_counts(t, item, minsup)
     else
         stats === nothing || (stats.tree_traversals += 1)      # lần đi node-link để đếm
-        counts = Dict{Int,Int}()
+        # Đếm theo hạng trong t (mảng) thay vì Dict theo item; mọi nút trên đường lên gốc đều thuộc t
+        cnt = zeros(Int, length(t.items))
         for n in nodelink(t, item)
             p = n.parent
             while p !== nothing && p.item != ROOT_ITEM
-                counts[p.item] = get(counts, p.item, 0) + n.count
+                @inbounds cnt[p.rank] += n.count
                 p = p.parent
             end
         end
-        filter!(p -> p.second >= minsup, counts)
+        counts = Dict{Int,Int}()                 # FPTree(...) tự sắp header: count giảm dần, hòa thì item nhỏ trước
+        @inbounds for r in eachindex(cnt)
+            c = cnt[r]
+            # c > 0: chỉ item thực sự gặp trên đường đi (như bản Dict cũ), kể cả khi minsup ≤ 0
+            c > 0 && c >= minsup && (counts[t.items[r]] = c)
+        end
     end
 
     ty = FPTree(base, base_count, counts)
@@ -182,20 +236,24 @@ function conditional_tree(t::FPTree, item::Int, minsup::Int,
     # Chỉ điền FP-array cho cây mới khi cây cha không dày và cây mới đủ lớn nhưng không quá lớn
     fill = cfg !== nothing && !t.dense && cfg.skip_items < m <= cfg.max_items
     A = fill ? new_fparray(m) : nothing
+    # Bảng ánh xạ hạng trong t → hạng trong ty, tính một lần cho cây mới (0 = không phổ biến trong ty)
+    rmap = zeros(Int, length(t.items))
+    for (rc, x) in enumerate(ty.items)
+        rmap[t.rank[x]] = rc
+    end
     path = Int[]
     ranks = Int[]
     stats === nothing || (stats.tree_traversals += 1)          # lần đi node-link để chèn
     for n in nodelink(t, item)
-        prefix_items!(path, ty, n)
-        isempty(path) && continue
-        insert_path!(ty, path, n.count, levels)
-        if fill
-            resize!(ranks, length(path))
-            for (k, x) in enumerate(path)
-                ranks[k] = ty.rank[x]
-            end
-            accumulate_pairs!(A, ranks, n.count, cfg.skip_items)   # cộng theo count của nút, không cộng 1
+        prefix_ranks!(ranks, rmap, n)            # hạng trong ty, tăng dần (= thứ tự của prefix_items!)
+        isempty(ranks) && continue
+        resize!(path, length(ranks))
+        @inbounds for k in eachindex(ranks)
+            path[k] = ty.items[ranks[k]]
         end
+        insert_path!(ty, path, n.count, levels)
+        # cộng theo count của nút, không cộng 1
+        fill && accumulate_pairs!(A::Vector{Int32}, ranks, n.count, cfg.skip_items)
     end
     if cfg !== nothing
         ty.dense = is_dense(levels, cfg.dense_ratio)

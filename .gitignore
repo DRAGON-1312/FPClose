@@ -1,7 +1,11 @@
-# Tài liệu PDF: bỏ qua tất cả, trừ báo cáo cuối kỳ
+# Tài liệu PDF: bỏ qua tất cả, trừ báo cáo cuối kỳ và hình kết quả
 tdke04.pdf
 *.pdf
 !docs/Report.pdf
+!results/figures/*.pdf
+
+# Manifest ở gốc repo (sinh ra khi Pkg.instantiate); Manifest của scripts/plot/ vẫn được commit
+/Manifest.toml
 
 # Output tạm
 *.out
@@ -43,4 +47,3 @@ data/raw/*
 # Output tạm của SPMF
 spmf_out*.txt
 *.spmf.out
-

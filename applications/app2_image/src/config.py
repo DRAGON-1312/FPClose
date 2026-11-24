@@ -7,6 +7,7 @@ FPCLOSE_DEMO = REPO / "demo.jl"                     # CLI FPClose của nhóm, d
 DATA_RAW = ROOT / "data" / "raw"                    # file tải về + giải nén (dữ liệu không tin cậy)
 DATA_IMG = ROOT / "data" / "images"                 # ảnh đã chọn, xám, resize
 DATA_SPLIT = ROOT / "data" / "split.csv"            # danh sách ảnh + lớp + train/test
+DATA_SIFT = ROOT / "data" / "sift.npz"              # descriptor + tọa độ keypoint của mọi ảnh (bước 2)
 OUT = ROOT / "out"
 
 SEED = 42

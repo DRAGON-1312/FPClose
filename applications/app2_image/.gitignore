@@ -1,0 +1,5 @@
+# Dữ liệu tải về + ảnh đã xử lý (~465 MB): không commit, bản cuối đưa lên Hugging Face.
+# Riêng split.csv (danh sách ảnh + train/test, ~60 KB) được commit để kiểm lại đúng tập ảnh.
+data/*
+!data/split.csv
+# .venv/, out/, __pycache__/ đã được .gitignore ở gốc repo bỏ qua.

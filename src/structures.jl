@@ -15,6 +15,8 @@ const ROOT_ITEM = -1
 Một nút của FP-tree.
 
 - `item`     : item của nút
+- `rank`     : hạng của `item` trong header của cây chứa nút (= `t.rank[item]`, gốc = 0); lưu sẵn để không phải
+               tra `Dict` trong vòng lặp nóng (giống bản C++ của tác giả mã hóa item thành rank)
 - `count`    : số giao dịch đi qua nút (cộng dồn mỗi lần chèn thêm)
 - `parent`   : nút cha (`nothing` với nút gốc)
 - `children` : các nút con, tra theo item
@@ -22,6 +24,7 @@ Một nút của FP-tree.
 """
 mutable struct FPNode
     item::Int
+    rank::Int
     count::Int
     parent::Union{FPNode, Nothing}
     children::Dict{Int, FPNode}
@@ -29,8 +32,8 @@ mutable struct FPNode
 end
 
 # Nút mới chưa có con và chưa được nối node-link
-FPNode(item::Int, count::Int, parent::Union{FPNode, Nothing}) =
-    FPNode(item, count, parent, Dict{Int, FPNode}(), nothing)
+FPNode(item::Int, rank::Int, count::Int, parent::Union{FPNode, Nothing}) =
+    FPNode(item, rank, count, parent, Dict{Int, FPNode}(), nothing)
 
 """
     FPTree
@@ -104,7 +107,7 @@ function FPTree(base::Vector{Int}, base_count::Int, item_counts)
     # item => count, tra cứu O(1)
     item_count = Dict{Int,Int}(pairs)
 
-    root = FPNode(ROOT_ITEM, 0, nothing)
+    root = FPNode(ROOT_ITEM, 0, 0, nothing)
 
     # Chưa có nút nào nên chưa có node-link; chưa tính FP-array
     return FPTree(root, base, base_count, items, rank, item_count,
@@ -117,6 +120,8 @@ end
 Một nút của CFI-tree.
 
 - `item`     : item của nút
+- `rank`     : hạng của `item` trong `rank` của CFI-tree chứa nút, gán khi chèn (gốc = 0; 0 cũng dùng cho item
+               không có trong `rank`, khi đó `closed_checking` tra lại `Dict` như cũ)
 - `count`    : count LỚN NHẤT trong các CFI đi qua nút (lấy max khi chèn, không cộng dồn)
 - `level`    : độ sâu của nút (gốc = 0), dùng để cắt sớm khi kiểm tra đóng
 - `parent`   : nút cha (`nothing` với nút gốc)
@@ -125,6 +130,7 @@ Một nút của CFI-tree.
 """
 mutable struct CFINode
     item::Int
+    rank::Int
     count::Int
     level::Int
     parent::Union{CFINode,Nothing}
@@ -133,8 +139,8 @@ mutable struct CFINode
 end
 
 # Nút mới nằm sâu hơn cha một mức, chưa có con và chưa được nối node-link
-CFINode(item::Int, count::Int, parent::CFINode) =
-    CFINode(item, count, parent.level + 1, parent, Dict{Int,CFINode}(), nothing)
+CFINode(item::Int, rank::Int, count::Int, parent::CFINode) =
+    CFINode(item, rank, count, parent.level + 1, parent, Dict{Int,CFINode}(), nothing)
 
 """
     CFITree
@@ -164,7 +170,7 @@ end
 Tạo CFI-tree rỗng cho FP-tree `t` (cùng `base`, cùng thứ tự item).
 """
 function CFITree(t::FPTree)
-    root = CFINode(ROOT_ITEM, 0, 0, nothing, Dict{Int,CFINode}(), nothing)
+    root = CFINode(ROOT_ITEM, 0, 0, 0, nothing, Dict{Int,CFINode}(), nothing)
     return CFITree(root, t.base, t.rank, Dict{Int,CFINode}(), Dict{Int,CFINode}(), ROOT_ITEM)
 end
 
@@ -211,13 +217,15 @@ Người gọi phải tự kiểm tra trước rằng `parent` chưa có con man
 - `count`  : count ban đầu của nút mới
 """
 function add_child!(t::FPTree, parent::FPNode, item::Int, count::Int)
-    child = FPNode(item, count, parent)
+    # item của FP-tree luôn nằm trong header (insert_path! yêu cầu vậy), nên tra thẳng
+    child = FPNode(item, t.rank[item], count, parent)
     parent.children[item] = child
     return link!(t, child)
 end
 
 function add_child!(t::CFITree, parent::CFINode, item::Int, count::Int)
-    child = CFINode(item, count, parent)
+    # 0 nếu item không có trong rank (không xảy ra khi chèn qua relative_items); closed_checking xử lý như cũ
+    child = CFINode(item, get(t.rank, item, 0), count, parent)
     parent.children[item] = child
     return link!(t, child)
 end

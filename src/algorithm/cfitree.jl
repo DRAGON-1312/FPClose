@@ -73,17 +73,27 @@ function closed_checking(C::CFITree, items::Vector{Int}, count::Int;
                          exact_count::Bool = true, stats = nothing)
     k = length(items)
     k == 0 && return exact_count ? C.root.count == count : C.root.count >= count
-    for n in nodelink(C, items[k])
+    # Hạng của items[1:k-1], tính MỘT lần mỗi lần gọi, chỉ khi có nút đầu tiên phải kiểm tra tập con.
+    # 0 = item không có trong C.rank: khi cần so sánh thì tra lại Dict (ném KeyError như bản cũ).
+    rk = nothing
+    for n in nodelink(C, @inbounds items[k])
         (exact_count ? n.count != count : n.count < count) && continue
         n.level < k && continue
         stats === nothing || (stats.subset_tests += 1)
+        if rk === nothing
+            rk = Vector{Int}(undef, k - 1)
+            @inbounds for j in 1:(k - 1)
+                rk[j] = get(C.rank, items[j], 0)
+            end
+        end
+        rv = rk::Vector{Int}
         idx = k - 1
         p = n.parent
-        while idx > 0 && p.item != ROOT_ITEM
+        @inbounds while idx > 0 && p.item != ROOT_ITEM      # 1 ≤ idx ≤ k-1 trong thân vòng lặp
             p.level < idx && break
             if p.item == items[idx]
                 idx -= 1
-            elseif C.rank[p.item] < C.rank[items[idx]]
+            elseif _node_rank(C, p) < _item_rank(C, items[idx], rv[idx])
                 break
             end
             p = p.parent
@@ -92,6 +102,11 @@ function closed_checking(C::CFITree, items::Vector{Int}, count::Int;
     end
     return false
 end
+
+# Hạng lưu trong nút CFI (gán khi chèn); 0 nghĩa là item không có trong C.rank, tra lại Dict như bản cũ.
+@inline _node_rank(C::CFITree, p::CFINode) = p.rank > 0 ? p.rank : C.rank[p.item]
+# Hạng đã tính trước của một item cần tìm; 0 thì tra lại Dict như bản cũ.
+@inline _item_rank(C::CFITree, item::Int, r::Int) = r > 0 ? r : C.rank[item]
 
 """
     init_cfitree(C, item, ty) -> CFITree

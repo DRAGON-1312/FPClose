@@ -149,8 +149,12 @@ rã tương ứng của SPMF, nhóm chưa định lượng được mức đóng
 \subsection{Số lượng itemset theo minsup}
 \label{sec:itemsets}
 
-Hình~\ref{fig:itemsets} vẽ số closed frequent itemset theo minsup của cả chín CSDL (cả hai trục thang log, trục
-hoành là minsup thật nên mỗi CSDL nằm ở một khoảng riêng).
+FPClose sinh các tập phổ biến \textbf{đóng}, và mọi tập phổ biến cùng support của chúng đều suy ra được từ tập đóng
+(Chương~\ref{sec:implementation}). Số tập phổ biến bùng nổ khi minsup giảm (mushrooms 20\% đã có 53\,583 frequent
+itemset so với 1\,197 tập đóng), nên kích thước đầu ra được đo bằng số closed frequent itemset. Số frequent itemset
+được đối chiếu với SPMF ở minsup cao nhất của mỗi CSDL (Mục~\ref{sec:correctness}). Hình~\ref{fig:itemsets} vẽ số
+closed frequent itemset theo minsup của cả chín CSDL (cả hai trục thang log, trục hoành là minsup thật nên mỗi CSDL
+nằm ở một khoảng riêng).
 
 \begin{figure*}[!t]
 \centering
@@ -225,7 +229,10 @@ của nhóm là 0{,}04–0{,}07\,s (7–8\%). Hệ số chặn dương gợi ý 
 nhưng thực nghiệm này không xác định nguồn của chi phí đó. Ở minsup 0{,}1\%, nhóm nhanh hơn SPMF ở mọi kích thước
 (0{,}42–0{,}86). Ở 0{,}05\%, nhóm nhanh hơn ở 10\% (0{,}77), gần tương đương từ 25\% đến 75\% (0{,}97–1{,}08) và chậm
 hơn trên toàn bộ retail (0{,}96 so với 0{,}76\,s, tỉ lệ 1{,}27), nhất quán với kết quả ở minsup thấp của retail trong
-Mục~\ref{sec:runtime}.
+Mục~\ref{sec:runtime}. Theo Bảng~\ref{tab:complexity}, chi phí đọc dữ liệu và dựng FP-tree gốc tăng theo tổng số lượt
+item $L$, tức tỉ lệ với số giao dịch khi phân bố item của các tập con giống nhau. Vì minsup tính theo tỉ lệ và số tập
+đóng gần ổn định giữa các tập con, không gian khai thác ít thay đổi, nên phần tăng thời gian chủ yếu đến từ khối lượng
+dữ liệu phải xử lý. Điều này phù hợp với xu hướng gần tuyến tính quan sát được.
 
 % ---------------------------------------------------------------------------
 \subsection{Ảnh hưởng của độ dài giao dịch trung bình}
@@ -245,8 +252,12 @@ Hình~\ref{fig:tx-time} và~\ref{fig:tx-items} (số liệu ở Bảng~\ref{tab:
 bình tăng từ 5 lên 30, số tập đóng tăng khoảng 38 lần (470 lên 18\,038) ở minsup 0{,}5\% và 160 lần (914 lên
 146\,134) ở 0{,}2\%, thời gian của nhóm tăng tương ứng khoảng 39 lần (0{,}012 lên 0{,}48\,s) và 115 lần (0{,}014 lên
 1{,}64\,s). Thời gian và số tập đóng tăng nhanh trong khoảng độ dài 5–30, nhưng sáu điểm đo không đủ để khẳng định một
-quy luật hàm mũ. Nhóm nhanh hơn SPMF ở mọi cấu hình khảo sát (tỉ lệ 0{,}17–0{,}72), nhưng lợi thế thu hẹp khi giao
-dịch dài ra: ở minsup 0{,}5\%, tỉ lệ tăng từ 0{,}24 ở độ dài 5 lên 0{,}70 ở độ dài 30.
+quy luật hàm mũ. Theo Bảng~\ref{tab:complexity}, độ dài giao dịch sau lọc $k_i$ tăng làm tăng chi phí sắp xếp và
+chèn từng giao dịch, kích thước pattern base và số cây điều kiện phải dựng. Số tập đóng bị chặn trên bởi $O(2^m)$ và
+với giao dịch dài, nhiều tổ hợp item cùng đạt minsup hơn, nên không gian khai thác mở rộng nhanh. Thời gian của nhóm
+vì vậy tăng cùng chiều với số tập đóng (39 và 115 lần so với 38 và 160 lần). Nhóm nhanh hơn SPMF ở mọi cấu hình khảo
+sát (tỉ lệ 0{,}17–0{,}72), nhưng lợi thế thu hẹp khi giao dịch dài ra: ở minsup 0{,}5\%, tỉ lệ tăng từ 0{,}24 ở độ dài
+5 lên 0{,}70 ở độ dài 30.
 
 % ---------------------------------------------------------------------------
 \subsection{Phân tích độ phức tạp}

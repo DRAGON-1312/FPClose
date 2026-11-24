@@ -26,3 +26,14 @@ DATA_WORDS = ROOT / "data" / "words.npz"            # từ thị giác của m�
 
 def codebook_path(k: int) -> Path:
     return ROOT / "data" / f"codebook_k{k}.npy"     # tâm cụm (k, 128) float32
+
+
+# --- Bước 4: giao dịch ---
+TAU = 2                    # giữ từ xuất hiện >= TAU lần trong ảnh (mặc định đã chốt)
+STOP_DF = 0.80             # bỏ item có mặt trong > 80% ảnh train
+GRID = 2                   # biến thể lưới GRID x GRID (2x2 -> 4 vùng)
+TAU_GRID = [1, 2, 3]       # bảng nhạy cảm: các giá trị tau thử
+STOP_GRID = [0.6, 0.7, 0.8, 0.9]
+CV_FOLDS = 5
+CV_TOL = 0.01              # tiêu chí chọn tau (xem docstring s05): sai khác accuracy CV tối đa 1 điểm %
+DATA_TX = ROOT / "data" / "transactions"            # data/transactions/k{k}_{word|grid}/

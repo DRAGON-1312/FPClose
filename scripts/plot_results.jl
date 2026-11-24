@@ -28,9 +28,8 @@ const W_DOUBLE = inch(7.0)   # khổ hai cột IEEE (hình lưới)
 const NCOL = 3               # số cột của hình lưới
 
 # --- Kiểu cố định cho hai công cụ, dùng ở MỌI hình (màu + hình marker để không phụ thuộc màu) ---
-const STYLE = Dict(OURS => (label = "FPClose (ours)", color = :royalblue, marker = :circle),
+const STYLE = Dict(OURS => (label = "FPClose (nhóm)", color = :royalblue, marker = :circle),
                    SPMF => (label = "SPMF", color = :darkorange, marker = :utriangle))
-const NOWRITE_LABEL = "ours (không ghi file)"
 const MINSUP_LINESTYLES = [:solid, :dash, :dot, :dashdot]
 const DATASET_MARKERS = [:circle, :rect, :utriangle, :diamond, :dtriangle, :pentagon, :hexagon, :star5, :xcross, :cross]
 
@@ -154,9 +153,8 @@ end
 # =============================================================================
 
 """
-Vẽ một panel runtime của dataset `ds`: FPClose (ours) và SPMF, thời gian CÓ ghi file (time_with_write_s, trung vị),
-cộng đường nét đứt ours KHÔNG ghi file (time_no_write_s) nếu có. Trục y log (mốc 1–2–5),
-trục x cách đều theo chỉ số các mức minsup giảm dần.
+Vẽ một panel runtime của dataset `ds`: FPClose (nhóm) và SPMF, cả hai đều dùng thời gian CÓ ghi file
+(time_with_write_s, trung vị). Trục y log (mốc 1–2–5), trục x cách đều theo chỉ số các mức minsup giảm dần.
 """
 function runtime_panel!(p, rt, ds; subplot = 1, legend = :topleft)
     d = rt[rt.dataset .== ds, :]
@@ -166,12 +164,8 @@ function runtime_panel!(p, rt, ds; subplot = 1, legend = :topleft)
     ours = sort(d[d.tool .== OURS, :], :minsup_pct; rev = true)
     spmf = sort(d[d.tool .== SPMF, :], :minsup_pct; rev = true)
     ys = Float64[]
-    append!(ys, tool_line!(p, xpos(ours), ours.time_with_write_s, OURS; subplot, ctx = "runtime/$ds/ours"))
+    append!(ys, tool_line!(p, xpos(ours), ours.time_with_write_s, OURS; subplot, ctx = "runtime/$ds/nhóm"))
     append!(ys, tool_line!(p, xpos(spmf), spmf.time_with_write_s, SPMF; subplot, ctx = "runtime/$ds/spmf"))
-    if hasproperty(ours, :time_no_write_s) && any(!ismissing, ours.time_no_write_s)
-        append!(ys, tool_line!(p, xpos(ours), ours.time_no_write_s, OURS; subplot, label = NOWRITE_LABEL,
-                               linestyle = :dash, hollow = true, ctx = "runtime/$ds/ours-không-ghi"))
-    end
     plot!(p; subplot, title = String(ds), legend)
     log_axis_y!(p, ys; subplot)
     minsup_index_axis!(p, levels; subplot)
@@ -362,7 +356,7 @@ end
 # =============================================================================
 
 """
-Cột chồng 100%: phân rã thời gian của FPClose (ours, optimized) cho mỗi dataset tại minsup của memory CSV
+Cột chồng 100%: phân rã thời gian của FPClose (nhóm, optimized) cho mỗi dataset tại minsup của memory CSV
 thành đọc file (+ khôi phục nếu có) / dựng FP-tree + khai thác / ghi file (xem load_time_breakdown). Dùng tỷ lệ % vì thời gian tuyệt đối
 giữa các dataset chênh nhau nhiều bậc; số tuyệt đối nằm trong results/summary/time_breakdown.md.
 """
@@ -383,7 +377,7 @@ function fig_time_breakdown(resdir, outdir)
             bar_width = 0.7, size = (W_SINGLE, inch(2.9)), legend = :outertop, ylims = (0, 100),
             yticks = 0:20:100, ylabel = "Tỷ lệ thời gian (%)", xticks = (x, labels), xrotation = 45,
             xlims = (0.3, k + 0.7), grid = :y, bottom_margin = 3Plots.mm,
-            title = "Phân rã thời gian của FPClose (ours)")
+            title = "Phân rã thời gian của FPClose (nhóm)")
     bar!(p, x, a .+ b; label = "dựng FP-tree + khai thác", fillcolor = STYLE[OURS].color, linecolor = :black, linewidth = 0.3,
          bar_width = 0.7)
     bar!(p, x, a; label = "đọc file (+ khôi phục nếu có)", fillcolor = :lightskyblue, linecolor = :black, linewidth = 0.3,

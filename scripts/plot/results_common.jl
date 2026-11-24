@@ -218,7 +218,7 @@ end
 """
     load_time_breakdown(resdir) -> DataFrame | nothing
 
-Phân rã thời gian của FPClose (ours) cho mỗi dataset tại minsup của results/memory/basic_vs_optimized.csv
+Phân rã thời gian của FPClose (nhóm) cho mỗi dataset tại minsup của results/memory/basic_vs_optimized.csv
 (biến thể optimized), dùng trung vị các lần OK:
 
 - Nếu grid_runtime.csv có cột tách `read_s`, `mine_s`, `write_s`, dùng chúng (cùng một lần đo runtime):

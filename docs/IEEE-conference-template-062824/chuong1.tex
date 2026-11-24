@@ -1,0 +1,60 @@
+% Chương 1: Cài đặt. KHUNG: các mục theo đề (https://hcmus-cs-ta.github.io/lab-book/data-mining/projects/itemset/),
+% thành viên phụ trách Chương 1 thay các \todo{...} bằng nội dung. Có thể tham khảo docs/DEVIATIONS.md, src/, test/.
+
+\section{\texorpdfstring{Cài đặt}{CHƯƠNG 1: CÀI ĐẶT}}
+\label{sec:implementation}
+
+\todo{Giới thiệu ngắn: bài toán khai thác tập phổ biến đóng, lý do chọn FPClose, ngôn ngữ Julia (phiên bản
+$\geq$ 1.9), cấu trúc chương.}
+
+% Đoạn định nghĩa chuyển từ Chương 2 sang; người viết Chương 1 giữ lại hoặc viết lại, nhưng các thuật ngữ này phải được
+% giải thích ở đây vì Chương 2 dùng mà không định nghĩa lại.
+\textit{Support} của một itemset là số giao dịch chứa nó, itemset là tập phổ biến (\textit{frequent itemset}) nếu
+support không nhỏ hơn ngưỡng minsup, và là tập phổ biến đóng (\textit{closed itemset}) nếu không có tập cha thực sự
+nào có cùng support~\cite{pasquier1999}. FPClose chỉ xuất các tập đóng, mọi tập phổ biến cùng support của chúng đều
+suy ra được từ tập đóng.
+
+\subsection{Thuật toán FPClose}
+\label{sec:algorithm}
+
+% Đoạn giải thích thuật ngữ chuyển từ Mục 2.3 sang (Chương 2 dùng các thuật ngữ này mà không định nghĩa lại).
+% Người viết Chương 1 giữ lại hoặc viết lại trong phần trình bày thuật toán.
+FPClose~\cite{grahne2005} dựng FP-tree~\cite{han2000} (\textit{frequent-pattern tree}: cây tiền tố gộp các giao dịch
+có chung phần đầu, mỗi nút lưu một item và số giao dịch đi qua) bằng hai lần quét CSDL, rồi với mỗi item dựng cây điều
+kiện (\textit{conditional FP-tree}) từ \textit{pattern base} (tập các đường tiền tố dẫn tới item đó) và đệ quy. Một
+tập chỉ được ghi nhận khi không có tập đóng nào chứa nó với cùng support trong CFI-tree (\textit{closed frequent
+itemset tree}: cây tiền tố lưu các tập đóng đã tìm được).
+\todo{Tóm tắt thuật toán theo bài báo gốc~\cite{grahne2005}: FP-tree, cây điều kiện, CFI-tree, hàm
+\texttt{closed\_checking}, mã giả (Fig. 8 của bài báo) và ví dụ nhỏ.}
+
+\subsection{Cài đặt cơ bản}
+\label{sec:basic}
+\todo{Cấu trúc mã nguồn (\path{src/structures.jl}, \path{src/algorithm/}, \path{src/utils.jl}), các cấu trúc dữ liệu
+chính và cách dùng đặc trưng của Julia (multiple dispatch, kiểu cụ thể, \ldots). Kết quả phải khớp hoàn toàn SPMF.}
+
+\subsection{Kiểm thử tự động}
+\label{sec:tests}
+\todo{Bộ unit test (\path{test/runtests.jl}): các nhóm test, so với vét cạn và với output SPMF trên ít nhất 5 CSDL
+(\path{test/fixtures/spmf/}), tỉ lệ đúng, số test pass ở lần chạy cuối.}
+
+\subsection{Tối ưu hóa bộ nhớ và tốc độ}
+\label{sec:optimizations}
+\todo{Mô tả các tối ưu (cắt nhánh dòng 8, FP-array, kết thúc sớm, so count chính xác, CFI-tree rút gọn) và lý do,
+mức cải thiện đo được so với bản cơ bản (số liệu ở mục~\ref{sec:memory}, Bảng~\ref{tab:ablation}).}
+
+\subsection{Xử lý đầu vào, đầu ra và tham số dòng lệnh}
+\label{sec:io}
+\todo{Đọc file định dạng SPMF, ghi kết quả cùng định dạng, tham số \texttt{--minsup}, \texttt{--minsup-count},
+đường dẫn file (\path{demo.jl}), quy ước làm tròn minsup.}
+
+\subsection{Những điểm khác với bài báo gốc}
+\label{sec:deviations}
+\todo{Tóm tắt các điểm bổ sung hoặc khác bài báo và ảnh hưởng tới kết quả (\path{docs/DEVIATIONS.md}).}
+
+% Đoạn chuyển từ Mục 2.2 sang (Chương 2 dẫn chiếu tới mục này). Người viết Chương 1 giữ lại hoặc viết lại.
+Trong quá trình kiểm thử, nhóm phát hiện trường hợp mã item 0 trùng với mã định danh của nút gốc FP-tree, dẫn đến mất
+các itemset chứa item này. Lỗi được khắc phục bằng cách dành riêng mã $-1$ cho nút gốc và bổ sung kiểm thử hồi quy
+(\textit{regression test}) trên CSDL chứa item 0. Lỗi này không ảnh hưởng đến các benchmark đã chuẩn hóa vì toàn bộ
+item trong các CSDL này đều có mã nguyên dương. Khi chuyển mã giả thành chương trình, nhóm làm rõ ba chi tiết triển
+khai: cây một nhánh phải liệt kê cả tiền tố đầy đủ, ghi nhận chính tập cơ sở $X$ ở cuối mỗi lời gọi, và thứ tự duyệt
+header. Cả ba được kiểm tra bằng phép so với SPMF ở Mục~\ref{sec:correctness}.

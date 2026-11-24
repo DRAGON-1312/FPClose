@@ -155,11 +155,10 @@ is therefore `0` for all five (it used to say `unknown_original_not_logged`).
 ## Public copy
 
 - Hugging Face (public): https://huggingface.co/datasets/hytrang/fpclose-fim-benchmarks
-- 8/9 public files match the normalized SHA-256 above (verified 2026-11-22 and again 2026-11-23).
-  **`mushrooms.txt` on Hugging Face is still the old SPMF version** (8,416 transactions, SHA-256 `37a11571…9bf7`):
-  it has to be re-uploaded with the clean file of **8,124 transactions** (SHA-256 `06206c73…1640`, produced by
-  `julia --project=. scripts/data_setup.jl --from-source --only mushrooms`). Until then
-  `scripts/data_setup.jl --from-hf` reports `[FAIL]` for mushrooms; use `--from-source` for that dataset.
+- Hosts the 9 normalized files above (`<name>.txt`), together with a dataset card (`README.md`) and `MANIFEST.md`.
+  The derived Retail subsets and synthetic datasets are not hosted; `scripts/data_setup.jl` generates them.
+- 9/9 public files match the normalized SHA-256 and transaction counts above, mushrooms included
+  (FIMI version, 8,124 transactions): verified 2026-11-24 by a clean run of `julia --project=. scripts/data_setup.jl`.
 - Direct download pattern: `https://huggingface.co/datasets/hytrang/fpclose-fim-benchmarks/resolve/main/<name>.txt`
 
 ## Derived datasets

@@ -304,4 +304,4 @@ Kết quả (đã kiểm bằng `demo.jl` và bằng test `Ví dụ chính thứ
 ## Liên kết
 
 - Google Colab: TODO
-- Dataset (Hugging Face/Kaggle): TODO
+- Dataset (Hugging Face): https://huggingface.co/datasets/hytrang/fpclose-fim-benchmarks (9 dataset benchmark đã chuẩn hóa; nguồn, SHA-256 và thống kê ở `data/README.md`)

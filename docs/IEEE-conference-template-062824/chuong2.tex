@@ -1,0 +1,325 @@
+% Chương 2: Thực nghiệm và đánh giá.
+% Hình lấy từ results/figures/ (\graphicspath trong report.tex), bảng từ tables/*.tex.
+% Cả hình và bảng do scripts/make_figures.jl sinh từ các CSV trong results/; số liệu trong bài lấy từ chính các bảng đó.
+
+\section{\texorpdfstring{Thực nghiệm và đánh giá}{CHƯƠNG 2: THỰC NGHIỆM VÀ ĐÁNH GIÁ}}
+\label{sec:experiments}
+
+Chương này so sánh cài đặt FPClose của nhóm với cài đặt FPClose trong thư viện SPMF~\cite{spmf} trên chín CSDL
+benchmark theo sáu tiêu chí: tính đúng đắn (\textit{correctness}), thời gian chạy theo ngưỡng hỗ trợ tối thiểu
+(\textit{minimum support}, minsup), số itemset sinh ra, bộ nhớ, khả năng mở rộng (\textit{scalability}) và ảnh hưởng
+của độ dài giao dịch. Mục~\ref{sec:setup} mô tả thiết lập thực nghiệm, các mục tiếp theo trình bày lần lượt từng tiêu
+chí, hai mục cuối phân tích độ phức tạp và tổng kết.
+
+\subsection{Thiết lập thực nghiệm}
+\label{sec:setup}
+
+\textbf{Dữ liệu.} Nhóm dùng chín cơ sở dữ liệu (CSDL) giao dịch phổ biến trong cộng đồng khai thác tập phổ biến
+(\textit{Frequent Itemset Mining}, FIM), lấy từ SPMF và kho FIMI~\cite{fimi03} (Bảng~\ref{tab:datasets}). Mỗi file
+được chuẩn hóa về định dạng SPMF (mỗi dòng một giao dịch, item là số nguyên dương sắp tăng, không trùng) và lưu công
+khai trên Hugging Face (\url{https://huggingface.co/datasets/hytrang/fpclose-fim-benchmarks}) kèm SHA-256 của từng
+file. Riêng mushrooms dùng bản FIMI gồm 8\,124 giao dịch, khớp số mẫu của bộ UCI Mushroom~\cite{uci_mushroom}. Chi
+tiết chuẩn hóa nằm ở Phụ lục~\ref{app:data}. Mật độ trong Bảng~\ref{tab:datasets} là mật độ toàn cục
+\begin{equation}
+\operatorname{Density}(D)=\frac{\sum_{i=1}^{n}|T_i|}{n\,|I|}\times 100\%=\frac{\bar{w}}{|I|}\times 100\%,
+\label{eq:density}
+\end{equation}
+với $n$ là số giao dịch, $T_i$ là giao dịch thứ $i$, $\bar{w}$ là độ dài giao dịch trung bình và $I$ là tập các item
+phân biệt trước khi lọc theo minsup. Mật độ toàn cục là trung bình độ hỗ trợ tương đối của các item, tính theo phần
+trăm. Trong phạm vi thực nghiệm này, chín CSDL được phân nhóm quy ước thành \textbf{dày} (\textit{dense}: chess,
+mushrooms, connect, pumsb\_star, accidents) và \textbf{thưa} (\textit{sparse}: retail, T10I4D100K, T40I10D100K,
+kosarak). Bài báo gốc cũng xếp connect và accidents vào dữ liệu dày~\cite{grahne2005}. Mật độ không phải tiêu chí
+phân nhóm duy nhất: tỉ lệ kích thước FP-tree tại minsup giữa lưới, định nghĩa ở (\ref{eq:tree-ratio}), là
+0{,}03--10{,}56\% ở nhóm dày và 28{,}14--89{,}13\% ở nhóm thưa (Bảng~\ref{tab:fptree}), hỗ trợ cách phân nhóm này.
+
+\textbf{Lưới minsup.} Với mỗi CSDL, nhóm chạy thử SPMF trên nhiều mức minsup với giới hạn 300\,s mỗi lần chạy và giữ
+6–7 mức từ cao xuống thấp mà SPMF chạy xong, tổng cộng 56 cấu hình. Ba mức thấp hơn bị loại vì SPMF vượt giới hạn
+này (kosarak 0{,}15\% và 0{,}1\%, T40I10D100K 0{,}5\%). Ngưỡng tương đối được đổi sang số giao dịch bằng
+$\sigma = \lceil n \cdot \text{minsup} \rceil$, giống SPMF. Trong lần đo chính, mỗi lần chạy có giới hạn 600\,s và
+không lần chạy nào vượt giới hạn.
+
+\begin{table}[!htb]
+\caption{Chín CSDL benchmark sau khi chuẩn hóa}
+\label{tab:datasets}
+\centering
+\fittable{\columnwidth}{datasets_table}
+\end{table}
+
+\textbf{Cách đo.} Mọi phép đo chạy trên cùng một máy (AMD Ryzen~9 8940HX, 16\,GB RAM, Windows, Julia 1.13.4, OpenJDK
+25, SPMF với \texttt{-Xmx4g}), quy trình đo được tự động hóa và tái lập được (Phụ lục~\ref{app:repro}). Thời gian của
+nhóm gồm đọc file, khai thác và ghi kết quả. Thời gian của SPMF là ``Total time'' do SPMF tự in: theo mã của lớp
+\texttt{AlgoFPClose}, đồng hồ bắt đầu khi gọi thuật toán và dừng sau khi đóng file kết quả, nên cũng gồm đọc, khai
+thác và ghi, với độ phân giải mili giây. Thời gian khởi động JVM và Julia không được tính ở cả hai phía. Hai phía
+khác nhau ở bước warm-up: mỗi lần đo của nhóm chạy trong một tiến trình Julia riêng, có \textit{warm-up} trên một
+CSDL nhỏ để loại phần lớn thời gian biên dịch JIT, còn mỗi lần chạy SPMF dùng một JVM mới không warm-up, nên thời
+gian biên dịch JIT của JVM nằm trong Total time. Phép so vì vậy phản ánh hiệu năng của hai cài đặt trong điều kiện
+thực thi này, và lợi thế của nhóm ở các cấu hình chạy rất nhanh có thể bị phóng đại. Cài đặt của nhóm chạy trên một
+luồng (mã nguồn không dùng đa luồng). Bộ nhớ của nhóm là RSS đỉnh (\textit{resident set size}: bộ nhớ vật lý tiến
+trình chiếm) đọc bằng \texttt{Sys.maxrss}, gồm khoảng 283\,MB đo ngay sau warm-up, trước khi đọc dữ liệu. ``Max memory'' của SPMF là heap JVM, đo theo cách khác, nên bộ nhớ chỉ được so giữa các biến thể của nhóm.
+
+\textbf{Tổng hợp số đo.} Mỗi cấu hình được đo ba lần, các số đo thời gian và bộ nhớ được tổng hợp bằng
+\textbf{trung vị} của ba lần đo. Số liệu được đo với phiên bản cài đặt có bộ đọc file theo byte và lưu thứ hạng item
+ngay trong nút cây (Mục~\ref{sec:io} và~\ref{sec:optimizations}). Với $r = T_{\text{nhóm}}/T_{\text{SPMF}}$, nhóm quy ước $r<0{,}90$ là nhanh hơn,
+$0{,}90 \le r \le 1{,}10$ là gần tương đương và $r>1{,}10$ là chậm hơn, dựa trên mức biến thiên giữa các lần đo. Đây
+là ngưỡng sai khác thực tiễn, không phải ngưỡng ý nghĩa thống kê. Khi thay trung vị bằng giá trị nhỏ nhất, tức thời
+gian thực thi tốt nhất quan sát được mà Chen và Revels~\cite{chen2016} đề xuất cho môi trường đo nhiễu, 76/78 cấu
+hình so sánh giữ nguyên nhóm, cấu hình duy nhất đổi phía quanh 1 vẫn nằm trong vùng gần tương đương
+(Phụ lục~\ref{app:data}).
+
+% ---------------------------------------------------------------------------
+\subsection{Tính đúng đắn}
+\label{sec:correctness}
+
+Với mỗi cấu hình, kết quả của hai phía được đưa về tập các cặp (itemset, support) rồi so trực tiếp. Tỉ lệ khớp được
+tính là
+\begin{equation}
+  \text{match} = \frac{|M|}{|M| + |O_{\text{nhóm}}| + |O_{\text{SPMF}}| + |D|},
+\end{equation}
+trong đó $M$ là các itemset có ở cả hai phía với cùng support, $O_{\text{nhóm}}$ và $O_{\text{SPMF}}$ là các itemset
+chỉ một phía có, $D$ là các itemset có ở cả hai phía nhưng khác support. Mẫu số là số itemset khác nhau của cả hai
+phía, nên itemset thừa ở phía nhóm cũng bị tính là sai.
+
+Bảng~\ref{tab:correctness} cho thấy cài đặt của nhóm khớp hoàn toàn với SPMF về \textit{closed itemset} và support
+trên cả 56 cấu hình, với tổng cộng 848\,998 lượt kết quả được đối chiếu qua các cấu hình. Khả năng khôi phục mọi
+\textit{frequent itemset} từ tập đóng cũng khớp với \texttt{FPGrowth\_itemsets} của SPMF tại 9 cấu hình, mỗi CSDL một
+mức minsup cao nhất, vì số frequent itemset bùng nổ khi minsup giảm (mushrooms 20\% đã có 53\,583 frequent itemset so
+với 1\,197 tập đóng). Bản thân SPMF cũng được kiểm tra trước khi dùng làm đáp án: trên cả 56 cấu hình, kết quả của
+SPMF giống từng itemset và support với cài đặt FPclose gốc của các tác giả trong kho FIMI~\cite{grahne2003}. Sau khi
+đổi sang bộ đọc theo byte và lưu thứ hạng trong nút cây, toàn bộ phép so (56 cấu hình closed và 9 cấu hình mọi
+frequent itemset) được chạy lại trên chính mã nguồn dùng để đo hiệu năng ở các mục sau và vẫn khớp 100\%, bộ kiểm thử
+tự động cũng đạt 28\,266/28\,266 ca.
+
+\begin{table*}[!t]
+\caption{Tỉ lệ itemset khớp SPMF (closed: mọi cấu hình, mọi frequent itemset: minsup cao nhất)}
+\label{tab:correctness}
+\centering
+\fittable{\textwidth}{correctness_table}
+\end{table*}
+
+Kết quả cuối không còn sai lệch. Sai khác phát hiện trước đó liên quan đến phép chuyển minsup tương đối sang số giao
+dịch bằng số thực dấu phẩy động: tích $0{,}07 \times 100$ được biểu diễn là $7{,}000000000000001$ nên hàm làm tròn lên
+trả về 8, dù theo số học chính xác ngưỡng là 7. Nhóm áp dụng quy ước tương thích SPMF trong phép đối chiếu. Các chi
+tiết triển khai khác phát hiện khi kiểm thử được trình bày ở Mục~\ref{sec:deviations}.
+
+% ---------------------------------------------------------------------------
+\subsection{Thời gian chạy theo minsup}
+\label{sec:runtime}
+
+Hình~\ref{fig:rt-chess}–\ref{fig:rt-kosarak} vẽ thời gian của nhóm và SPMF trên từng CSDL, mỗi hình một CSDL như
+cách trình bày của bài báo gốc~\cite{grahne2005}: trục hoành là các mức minsup đặt cách đều theo thứ tự, giảm dần từ
+trái sang phải (khoảng cách ngang không tỉ lệ với giá trị minsup), trục tung thang log. Cả hai đường dùng tổng thời
+gian có ghi file kết quả. Tỉ lệ thời gian nhóm/SPMF tại từng mức minsup nằm ở Bảng~\ref{tab:ratio} (Phụ lục) và được
+diễn giải theo ngưỡng ở Mục~\ref{sec:setup}. Trên 56 cấu hình, nhóm nhanh hơn ở 44, gần tương đương ở 5 và chậm hơn
+ở 7.
+
+\colfig{runtime_chess.pdf}{Thời gian chạy trên chess (trung vị 3 lần đo).}{fig:rt-chess}
+\colfig{runtime_mushrooms.pdf}{Thời gian chạy trên mushrooms.}{fig:rt-mushrooms}
+\colfig{runtime_connect.pdf}{Thời gian chạy trên connect.}{fig:rt-connect}
+\colfig{runtime_pumsb_star.pdf}{Thời gian chạy trên pumsb\_star.}{fig:rt-pumsb_star}
+\colfig{runtime_accidents.pdf}{Thời gian chạy trên accidents.}{fig:rt-accidents}
+
+\textbf{Dữ liệu dày và kosarak.} Nhóm nhanh hơn SPMF ở mọi mức minsup trên cả năm CSDL dày: chess (tỉ lệ
+0{,}11–0{,}42), mushrooms (0{,}19–0{,}49), connect (0{,}39–0{,}57), pumsb\_star (0{,}38–0{,}56) và accidents
+(0{,}60–0{,}72). Trên chess khoảng cách tăng khi minsup giảm: ở 60\%, nhóm mất 0{,}87\,s so với 8{,}07\,s của SPMF.
+Trên kosarak, nhóm nhanh hơn ở năm trên sáu mức (0{,}68–0{,}86) và gần tương đương ở 0{,}4\% (0{,}98).
+
+\colfig{runtime_retail.pdf}{Thời gian chạy trên retail.}{fig:rt-retail}
+\colfig{runtime_T10I4D100K.pdf}{Thời gian chạy trên T10I4D100K.}{fig:rt-T10I4D100K}
+\colfig{runtime_T40I10D100K.pdf}{Thời gian chạy trên T40I10D100K.}{fig:rt-T40I10D100K}
+\colfig{runtime_kosarak.pdf}{Thời gian chạy trên kosarak.}{fig:rt-kosarak}
+
+\textbf{Dữ liệu thưa ở minsup thấp.} Trên retail, nhóm nhanh hơn từ 1\% đến 0{,}1\% (0{,}38–0{,}77) nhưng chậm hơn ở
+0{,}05\% và 0{,}02\% (1{,}25 và 1{,}27). Trên T10I4D100K, nhóm chỉ nhanh hơn ở 1\% (0{,}89), gần tương đương ở
+0{,}2\% (1{,}08) và chậm hơn ở các mức còn lại (1{,}16–1{,}49). Trên T40I10D100K, tỉ lệ nằm trong khoảng
+0{,}84–1{,}16: nhanh hơn ở 3\% và 2\%, chậm hơn ở 1{,}25\%, gần tương đương ở các mức còn lại.
+
+\textbf{Giải thích theo thuật toán.} Theo cơ chế FP-tree và CFI-tree của FPClose~\cite{grahne2005}, chi phí khai thác
+phụ thuộc vào mức chia sẻ tiền tố của cây, kích thước pattern base và cây điều kiện, cùng chi phí kiểm tra tính đóng
+(Mục~\ref{sec:complexity}). Kích thước đầu ra có liên quan nhưng không xác định duy nhất thời gian chạy. Sau khi đổi
+sang bộ đọc theo byte, tại minsup thấp nhất, đọc file chiếm khoảng 7{,}6\% tổng thời gian trên accidents, 4{,}9\% trên
+pumsb\_star và dưới 3{,}5\% trên các CSDL còn lại, còn bước dựng FP-tree và khai thác chiếm khoảng 86–99\%
+(Bảng~\ref{tab:breakdown} và Hình~\ref{fig:breakdown}, Phụ lục). Trên retail và T10I4D100K tại minsup thấp nhất,
+riêng bước này của nhóm đã lâu hơn toàn bộ thời gian chạy của SPMF, nên đây là thành phần cần ưu tiên cải tiến. Các
+cấu hình nhóm chậm hơn đều nằm ở dữ liệu thưa với minsup thấp, nơi FP-tree nén kém: tỉ lệ kích thước FP-tree
+$R_{\text{tree}}$ (số nút FP-tree gốc chia cho tổng lượt item phổ biến, công thức~(\ref{eq:tree-ratio})) là
+56–89\% ở retail, T10I4D100K và T40I10D100K so với dưới 11\% ở dữ liệu dày (Bảng~\ref{tab:fptree}). Do chưa có phân
+rã tương ứng của SPMF, nhóm chưa định lượng được mức đóng góp của từng bước vào chênh lệch giữa hai cài đặt.
+
+% ---------------------------------------------------------------------------
+\subsection{Số lượng itemset theo minsup}
+\label{sec:itemsets}
+
+FPClose sinh các tập phổ biến \textbf{đóng}, và mọi tập phổ biến cùng support của chúng đều suy ra được từ tập đóng
+(Chương~\ref{sec:implementation}). Số tập phổ biến bùng nổ khi minsup giảm (mushrooms 20\% đã có 53\,583 frequent
+itemset so với 1\,197 tập đóng), nên kích thước đầu ra được đo bằng số closed frequent itemset. Số frequent itemset
+được đối chiếu với SPMF ở minsup cao nhất của mỗi CSDL (Mục~\ref{sec:correctness}). Hình~\ref{fig:itemsets} vẽ số
+closed frequent itemset theo minsup của cả chín CSDL (cả hai trục thang log, trục hoành là minsup thật nên mỗi CSDL
+nằm ở một khoảng riêng).
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{itemsets_vs_minsup.pdf}
+\caption{Số closed frequent itemset theo minsup của chín CSDL.}
+\label{fig:itemsets}
+\end{figure*}
+
+Khi minsup giảm, số tập đóng tăng nhanh ở cả hai nhóm, nhưng ở hai vùng minsup rất khác nhau. Chess tăng từ 498 tập
+tại minsup 90\% lên 98\,392 tập tại 60\%, accidents từ 31 (90\%) lên 32\,528 (40\%). Retail tăng từ 159 tập tại 1\%
+lên 65\,301 tập tại 0{,}02\%, T10I4D100K từ 385 lên 107\,822. Trong phạm vi khảo sát, nhóm dữ liệu dày phát sinh nhiều tập đóng ngay
+tại các ngưỡng hỗ trợ tương đối cao. Trên một số CSDL thưa như retail và T10I4D100K, sự gia tăng kích thước đầu ra
+được quan sát ở các ngưỡng hỗ trợ thấp hơn đáng kể. Khác biệt này liên quan đến phân bố và mức đồng xuất hiện của
+item. Kích thước
+đầu ra có liên quan đến thời gian chạy nhưng không phải yếu tố duy nhất, vì thời gian còn phụ thuộc cấu trúc cây và
+hiệu quả cắt nhánh. Lưới minsup vì vậy được chọn riêng cho từng CSDL (60–95\% cho chess và connect, 0{,}02–1\% cho
+retail và T10I4D100K).
+
+% ---------------------------------------------------------------------------
+\subsection{Sử dụng bộ nhớ: bản cơ bản và bản tối ưu}
+\label{sec:memory}
+
+Tám biến thể dùng cùng bộ đọc dữ liệu và cùng cách lưu thứ hạng item trong nút cây, chỉ khác nhau ở năm kỹ thuật tối
+ưu tùy chọn: cắt nhánh dòng 8 của mã giả FPClose, FP-array, kết thúc sớm, so count chính xác và CFI-tree rút gọn. Bản
+\textbf{basic} tắt cả năm kỹ thuật, bản \textbf{pruning-only} chỉ bật cắt nhánh (tên nội bộ và nhãn trong hình là
+\texttt{paper}), bản \textbf{optimized} bật cả năm, năm biến thể còn lại lần lượt tắt riêng một kỹ thuật của bản
+optimized (\textit{ablation}). FP-array là mảng đếm sẵn tần suất của từng cặp item khi dựng cây, nhờ đó khi dựng cây
+điều kiện không phải duyệt cây thêm một lần để đếm~\cite{grahne2005}. Mọi biến thể cho cùng một tập kết quả ở mọi lần
+chạy (cùng mã hash). Mọi số đo đặt tại minsup giữa lưới của mỗi CSDL và là trung vị của ba lần đo.
+
+\colfig{peak_rss_basic_optimized.pdf}{RAM tối đa của cả tiến trình (peak RSS) của bản basic và optimized tại minsup
+giữa lưới (trung vị 3 lần đo). Đường nét đứt là mức đo ngay sau warm-up, trước khi đọc dữ liệu.}{fig:memory}
+
+\textbf{RAM tối đa.} Hình~\ref{fig:memory} so sánh RAM tối đa của cả tiến trình giữa bản basic và optimized. Bản
+optimized giảm nhẹ RAM tối đa trên retail (368 xuống 361\,MB) và T10I4D100K (621 xuống 613\,MB), trên các CSDL còn lại
+chênh lệch không quá 5\,MB. Trong phạm vi thực nghiệm, các tối ưu tùy chọn chủ yếu cải thiện thời gian khai thác trên
+một số CSDL, còn RAM tối đa ít thay đổi. RAM tối đa đi từ khoảng 297\,MB trên các CSDL dày nhỏ, gần bằng mức sau
+warm-up, đến khoảng 1{,}96\,GB trên T40I10D100K. Phần tăng thêm so với mức sau warm-up (Hình~\ref{fig:memory-grid},
+Phụ lục) gồm CSDL nạp vào bộ nhớ, FP-tree gốc, các cây điều kiện đang mở trên đường đệ quy và các itemset kết quả giữ
+trong RAM trước khi ghi file. T40I10D100K cần nhiều nhất vì FP-tree gốc gần như không nén được (khoảng 3{,}26 triệu
+nút, $R_{\text{tree}}=89\%$) và giao dịch dài (trung bình 39{,}6 item).
+
+\textbf{Thời gian khai thác.} Tỉ lệ thời gian khai thác basic/optimized đi từ 0{,}98 trên T10I4D100K (trong phạm vi
+nhiễu) đến 1{,}44 trên mushrooms, tức bản optimized giảm khoảng 31\% thời gian khai thác trên mushrooms. Lợi ích của
+từng kỹ thuật phụ thuộc CSDL (Bảng~\ref{tab:ablation} và Hình~\ref{fig:ablation}, Phụ lục):
+\begin{itemize}
+  \item Tắt \textbf{FP-array} làm thời gian khai thác trên T40I10D100K tăng 14\%, nhưng trên kosarak lại giảm 10\%.
+        FP-array chỉ được dùng trên dữ liệu thưa (941 lần trên retail, 727 lần trên T40I10D100K, 0 lần trên mọi CSDL
+        dày) vì nó được tắt khi cây đủ dày, đúng như bài báo đề xuất~\cite{grahne2005}.
+  \item \textbf{Cắt nhánh} và \textbf{kết thúc sớm} giảm số lời gọi đệ quy trên dữ liệu dày (mushrooms từ 15\,095
+        xuống 8\,158, connect từ 13\,362 xuống 8\,212) và gần như không kích hoạt trên dữ liệu thưa.
+  \item Tắt \textbf{CFI-tree rút gọn} làm thời gian khai thác tăng 21\% trên chess và 14\% trên mushrooms.
+\end{itemize}
+Các chênh lệch dưới khoảng 10\% được diễn giải thận trọng vì chỉ có ba lần đo.
+
+% ---------------------------------------------------------------------------
+\subsection{Khả năng mở rộng}
+\label{sec:scalability}
+
+Nhóm dùng retail (88\,162 giao dịch) và tạo năm tập con lồng nhau gồm 10\%, 25\%, 50\%, 75\% và 100\% giao dịch (xáo
+trộn một lần với seed 2026 rồi lấy tiền tố), ở hai mức minsup tương đối 0{,}1\% và 0{,}05\%. Trong các tập con
+này, số tập đóng gần ổn định theo kích thước: 7\,572–8\,394 ở 0{,}1\% và 18\,925–19\,579 ở 0{,}05\%.
+
+\colfig{scalability_time.pdf}{Thời gian theo kích thước CSDL trên các tập con của retail (trung vị 3 lần
+đo).}{fig:sc-time}
+
+Hình~\ref{fig:sc-time} (số liệu ở Bảng~\ref{tab:scalability}, Phụ lục) cho thấy khi số giao dịch tăng 10 lần, thời
+gian của nhóm tăng 6{,}7 lần ở minsup 0{,}1\% và 5{,}4 lần ở 0{,}05\%, còn của SPMF tăng 3{,}4 và 3{,}3 lần. Mô hình
+tuyến tính $T(n)=an+b$ khớp tốt cho cả hai cài đặt ($R^2 \geq 0{,}95$), gợi ý xu hướng mở rộng gần tuyến tính trong
+phạm vi retail và hai mức minsup khảo sát. Hệ số chặn $b$ của SPMF là 0{,}14–0{,}16\,s (21–25\% thời gian ở 100\%),
+của nhóm là 0{,}04–0{,}07\,s (7–8\%). Hệ số chặn dương gợi ý một thành phần chi phí ít phụ thuộc kích thước dữ liệu,
+nhưng thực nghiệm này không xác định nguồn của chi phí đó. Ở minsup 0{,}1\%, nhóm nhanh hơn SPMF ở mọi kích thước
+(0{,}42–0{,}86). Ở 0{,}05\%, nhóm nhanh hơn ở 10\% (0{,}77), gần tương đương từ 25\% đến 75\% (0{,}97–1{,}08) và chậm
+hơn trên toàn bộ retail (0{,}96 so với 0{,}76\,s, tỉ lệ 1{,}27), nhất quán với kết quả ở minsup thấp của retail trong
+Mục~\ref{sec:runtime}. Theo Bảng~\ref{tab:complexity}, chi phí đọc dữ liệu và dựng FP-tree gốc tăng theo tổng số lượt
+item $L$, tức tỉ lệ với số giao dịch khi phân bố item của các tập con giống nhau. Vì minsup tính theo tỉ lệ và số tập
+đóng gần ổn định giữa các tập con, không gian khai thác ít thay đổi, nên phần tăng thời gian chủ yếu đến từ khối lượng
+dữ liệu phải xử lý. Điều này phù hợp với xu hướng gần tuyến tính quan sát được.
+
+% ---------------------------------------------------------------------------
+\subsection{Ảnh hưởng của độ dài giao dịch trung bình}
+\label{sec:txlen}
+
+Giao dịch dài có thể làm tăng độ sâu FP-tree, kích thước pattern base và số tổ hợp item cần khảo sát. Để kiểm
+chứng, nhóm sinh sáu CSDL tổng hợp cùng 10\,000 giao dịch, miền 500 item, độ dài trung bình 5, 10, \ldots, 30. Giao
+dịch của mức dài chứa giao dịch của mức ngắn, quy trình sinh nằm ở Phụ lục~\ref{app:data}. Vì miền item được giữ cố
+định, khi độ dài tăng thì mật độ và mức đồng xuất hiện của item cũng thay đổi theo. Nhóm chạy ở hai mức minsup
+0{,}5\% và 0{,}2\%.
+
+\colfig{txlen_time.pdf}{Thời gian theo độ dài giao dịch trung bình (10\,000 giao dịch, 500 item, trung vị 3 lần
+đo).}{fig:tx-time}
+\colfig{txlen_itemsets.pdf}{Số closed itemset theo độ dài giao dịch trung bình (10\,000 giao dịch, 500 item).}{fig:tx-items}
+
+Hình~\ref{fig:tx-time} và~\ref{fig:tx-items} (số liệu ở Bảng~\ref{tab:txlen}, Phụ lục) cho thấy khi độ dài trung
+bình tăng từ 5 lên 30, số tập đóng tăng khoảng 38 lần (470 lên 18\,038) ở minsup 0{,}5\% và 160 lần (914 lên
+146\,134) ở 0{,}2\%, thời gian của nhóm tăng tương ứng khoảng 39 lần (0{,}012 lên 0{,}48\,s) và 115 lần (0{,}014 lên
+1{,}64\,s). Thời gian và số tập đóng tăng nhanh trong khoảng độ dài 5–30, nhưng sáu điểm đo không đủ để khẳng định một
+quy luật hàm mũ. Theo Bảng~\ref{tab:complexity}, độ dài giao dịch sau lọc $k_i$ tăng làm tăng chi phí sắp xếp và
+chèn từng giao dịch, kích thước pattern base và số cây điều kiện phải dựng. Số tập đóng bị chặn trên bởi $O(2^m)$ và
+với giao dịch dài, nhiều tổ hợp item cùng đạt minsup hơn, nên không gian khai thác mở rộng nhanh. Thời gian của nhóm
+vì vậy tăng cùng chiều với số tập đóng (39 và 115 lần so với 38 và 160 lần). Nhóm nhanh hơn SPMF ở mọi cấu hình khảo
+sát (tỉ lệ 0{,}17–0{,}72), nhưng lợi thế thu hẹp khi giao dịch dài ra: ở minsup 0{,}5\%, tỉ lệ tăng từ 0{,}24 ở độ dài
+5 lên 0{,}70 ở độ dài 30.
+
+% ---------------------------------------------------------------------------
+\subsection{Phân tích độ phức tạp}
+\label{sec:complexity}
+
+Gọi $n$ là số giao dịch, $L=\sum_i |T_i|$ là tổng số lượt item ban đầu, $m$ là số item phổ biến và $k_i$ là độ dài
+giao dịch thứ $i$ sau khi lọc item không phổ biến. Bảng~\ref{tab:complexity} tóm tắt chi phí từng thành phần với giả
+định đếm, tra thứ tự và chèn nút có chi phí trung bình $O(1)$. Nhóm không đưa ra một cận Big-O duy nhất cho toàn bộ
+FPClose, vì chi phí khai thác phụ thuộc cấu trúc dữ liệu và không chỉ phụ thuộc kích thước đầu vào hay đầu ra. Bộ
+đọc theo byte và việc lưu thứ hạng trực tiếp trong nút cây giảm chi phí xử lý chuỗi, tra cứu và cấp phát, tức tác động
+đến hằng số thực thi chứ không làm thay đổi các cận tiệm cận dưới giả định trên.
+
+\begin{table}[!htb]
+\caption{Chi phí các thành phần của FPClose và liên hệ với thực nghiệm}
+\label{tab:complexity}
+\centering
+\footnotesize\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.19\columnwidth}>{\raggedright\arraybackslash}p{0.48\columnwidth}>{\raggedright\arraybackslash}p{0.27\columnwidth}@{}}
+\hline
+Thành phần & Chi phí & Liên hệ thực nghiệm \\
+\hline
+FP-tree gốc & $O(L + m\log m + \sum_i k_i\log(k_i+1))$ thời gian, tối đa $\sum_i k_i$ nút không tính gốc &
+Khả năng mở rộng, bước xử lý giao dịch \\
+FP-array & $O(m^2)$ bộ nhớ (nửa tam giác dưới), $O(m^2 + \sum_i k_i^2)$ thời gian nếu khởi tạo cả mảng và đếm mọi
+cặp, chỉ tính khi cây được coi là thưa & Có lợi trên T40I10D100K, bất lợi trên kosarak \\
+Khai thác đệ quy & Phụ thuộc số trạng thái được duyệt, kích thước pattern base và cây điều kiện. Số tập đóng tối đa
+$O(2^m)$ & minsup, kích thước đầu ra, độ dài giao dịch \\
+Kiểm tra đóng & Phụ thuộc số nút ứng viên của CFI-tree được duyệt và chi phí kiểm tra bao hàm & Cắt nhánh, CFI-tree
+rút gọn \\
+Bộ nhớ & CSDL $O(L)$, cây gốc, các cây điều kiện, FP-array và CFI-tree còn sống trên đường đệ quy, stack, và các
+itemset kết quả giữ trong RAM trước khi ghi file & RAM tối đa \\
+\hline
+\end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------------
+\subsection{Đánh giá chung và hướng tối ưu}
+\label{sec:discussion}
+
+\textbf{Điểm mạnh.} Cài đặt của nhóm khớp SPMF trên cả 56 cấu hình closed itemset. Trong điều kiện đo đã công bố,
+nhóm nhanh hơn SPMF ở 44/56 cấu hình minsup, gồm mọi mức trên cả năm CSDL dày (tới khoảng 9 lần trên chess 60\%), và
+ở cả 12 cấu hình độ dài giao dịch. Thực nghiệm riêng của bộ đọc file (\path{scripts/bench_reader.jl}) cho thấy bộ
+đọc theo byte, đọc cả file một lần và tự phân tích số nguyên mà không tạo chuỗi, nhanh hơn bộ đọc theo dòng trước đó
+7{,}9–19{,}9 lần trên chín CSDL, ví dụ trên accidents từ 1{,}42 xuống 0{,}08\,s. Phiên bản này cũng lưu thứ hạng item
+ngay trong nút FP-tree, CFI-tree để giảm chi phí tra cứu trong vòng lặp khai thác (Mục~\ref{sec:optimizations}),
+nhưng đóng góp độc lập của thay đổi này chưa được định lượng.
+
+\textbf{Điểm yếu.} Nhóm vẫn chậm hơn SPMF trên một số CSDL thưa tại minsup thấp (retail 0{,}05–0{,}02\%, T10I4D100K
+ở 0{,}5\% và từ 0{,}1\% trở xuống, T40I10D100K 1{,}25\%), với tỉ lệ thời gian lên đến 1{,}49. Số liệu phân rã của nhóm
+cho thấy dựng cây và khai thác chiếm phần lớn thời gian thực thi, nên đây là thành phần cần ưu tiên cải thiện. Hiệu
+quả của FP-array phụ thuộc CSDL: có lợi trên T40I10D100K nhưng làm chậm kosarak.
+
+\textbf{Giới hạn.} Kết quả chỉ phản ánh các cấu hình khảo sát. Ba lần đo mỗi cấu hình, cách warm-up khác nhau giữa
+Julia và JVM, và việc khảo sát khả năng mở rộng chỉ trên retail giới hạn khả năng suy rộng.
+
+\textbf{Hướng tối ưu tiếp theo.}
+\begin{enumerate}
+  \item \textbf{Giảm cấp phát khi dựng cây.} Thay các nút là đối tượng riêng bằng cấu trúc mảng (\textit{struct of
+        arrays}: mảng item, count, cha, node-link dạng \texttt{Int32}) và tái sử dụng vùng nhớ theo vòng đời của
+        từng tầng đệ quy. Cần đo lại bộ nhớ cấp phát và RAM tối đa khi triển khai.
+  \item \textbf{FP-array thích nghi.} Trên kosarak, tắt FP-array giảm 10\% thời gian khai thác, trong khi trên
+        T40I10D100K lại tăng 14\%. Có thể quyết định bật hay tắt FP-array cho từng cây điều kiện theo số item, tỉ lệ
+        nén thực đo và ngân sách bộ nhớ, thay cho các ngưỡng cố định hiện tại (\texttt{dense\_ratio},
+        \texttt{skip\_items}). Đây là hướng cải tiến cho cơ chế hiện có, chưa được triển khai và kiểm chứng.
+\end{enumerate}

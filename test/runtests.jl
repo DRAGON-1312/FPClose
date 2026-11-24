@@ -6,6 +6,7 @@ using FPClose
 include("brute_force.jl")
 
 @testset "FPClose" begin
+    include("test_reader.jl")
     include("test_correctness.jl")
     include("test_optimizations.jl")
     include("test_recovery.jl")

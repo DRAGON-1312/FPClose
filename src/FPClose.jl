@@ -19,7 +19,7 @@ include("recovery.jl")
 include("rules.jl")
 
 # Hàm chính, đọc/ghi dữ liệu, tham số dòng lệnh
-export fpclose, FPCloseStats, read_spmf, write_spmf, minsup_count, sort_results!, parse_cli_args, parse_cli_options, resolve_minsup
+export fpclose, FPCloseStats, read_spmf, read_spmf_simple, write_spmf, minsup_count, sort_results!, parse_cli_args, parse_cli_options, resolve_minsup
 # Cấu trúc cây và thao tác (dùng khi test)
 export FPTree, CFITree, build_fptree, conditional_tree, pattern_base
 export closed_checking, insert_cfi!, init_cfitree

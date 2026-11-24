@@ -1,11 +1,14 @@
 # Tiện ích: đọc/ghi định dạng SPMF, đổi ngưỡng minsup, đọc tham số dòng lệnh.
 #   read_spmf, write_spmf            : đọc cơ sở dữ liệu, ghi kết quả theo định dạng SPMF
+#   read_spmf_simple                 : bản đọc gốc (chuẩn so sánh cho read_spmf)
 #   minsup_count, MINSUP_ROUNDING    : đổi ngưỡng tương đối sang số giao dịch
 #   sort_results!                    : sắp kết quả cho ổn định
 #   parse_minsup_ratio, parse_minconf, parse_cli_args, parse_cli_options, resolve_minsup : tham số dòng lệnh
 
 """
-    read_spmf(path) -> Vector{Vector{Int}}
+    read_spmf_simple(path) -> Vector{Vector{Int}}
+
+Bản đọc gốc (eachline + strip + split + tryparse), giữ nguyên làm chuẩn so sánh cho [`read_spmf`](@ref).
 
 Đọc cơ sở dữ liệu định dạng SPMF: mỗi dòng là một giao dịch gồm các số nguyên không âm cách nhau
 dấu cách (item 0 hợp lệ). Bỏ dòng trống và dòng metadata (bắt đầu bằng `#`, `%` hoặc `@`). Mỗi giao dịch
@@ -15,7 +18,7 @@ dấu cách (item 0 hợp lệ). Bỏ dòng trống và dòng metadata (bắt đ
 
 Trả về danh sách giao dịch. Báo `ArgumentError` (kèm số dòng) nếu có item âm hoặc không phải số nguyên.
 """
-function read_spmf(path::AbstractString)
+function read_spmf_simple(path::AbstractString)
     db = Vector{Int}[]
     for (ln, line) in enumerate(eachline(path))
         s = strip(line)
@@ -30,6 +33,126 @@ function read_spmf(path::AbstractString)
         push!(db, sort!(unique!(items)))
     end
     return db
+end
+
+"""
+    read_spmf(path) -> Vector{Vector{Int}}
+
+Đọc cơ sở dữ liệu định dạng SPMF, cho kết quả và lỗi y hệt [`read_spmf_simple`](@ref) nhưng nhanh hơn:
+đọc cả file một lần (`read(path)`), tách dòng theo byte `\\n`, tự parse số nguyên không tạo chuỗi.
+
+Quy tắc (giống bản gốc): mỗi dòng là một giao dịch gồm các số nguyên không âm cách nhau khoảng trắng
+(item 0 hợp lệ). Bỏ dòng trống và dòng metadata (ký tự khác khoảng trắng đầu tiên là `#`, `%` hoặc `@`).
+Mỗi giao dịch được bỏ item trùng và sắp tăng dần. Báo `ArgumentError` (kèm tên file và số dòng) nếu có item âm
+hoặc không phải số nguyên.
+
+Cách làm: dòng nào chỉ gồm khoảng trắng ASCII và chữ số (trường hợp gần như luôn gặp) đi đường nhanh. Dòng có bất
+kỳ ký tự nào khác (dấu `+`/`-`, chữ, byte không phải ASCII như khoảng trắng Unicode, số tràn Int) được xử lý lại
+bằng đúng logic của bản gốc trên riêng dòng đó, nên mọi trường hợp biên và thông báo lỗi đều trùng khớp.
+
+- `path` : đường dẫn file input
+"""
+function read_spmf(path::AbstractString)
+    bytes = read(path)
+    n = length(bytes)
+    db = Vector{Int}[]
+    sizehint!(db, count(==(0x0a), bytes) + 1)       # cấp phát mảng giao dịch một lần
+    buf = Int[]                                      # bộ đệm item dùng lại cho mọi dòng
+    i = 1
+    ln = 0
+    while i <= n
+        nl = findnext(==(0x0a), bytes, i)            # eachline tách theo '\n'; dòng cuối có thể không có '\n'
+        j = nl === nothing ? n + 1 : nl
+        ln += 1
+        st = _spmf_parse_line_fast!(buf, bytes, i, j - 1)
+        if st == _LINE_OK
+            push!(db, _spmf_transaction(buf))
+        elseif st == _LINE_FALLBACK
+            t = _spmf_parse_line_simple(path, ln, String(bytes[i:(j - 1)]))
+            t === nothing || push!(db, t)
+        end                                          # _LINE_SKIP: dòng trống hoặc metadata
+        i = j + 1
+    end
+    return db
+end
+
+const _LINE_SKIP = 0
+const _LINE_OK = 1
+const _LINE_FALLBACK = 2
+
+"Khoảng trắng ASCII theo `isspace` của Julia: ' ', '\\t', '\\n', '\\v', '\\f', '\\r'."
+@inline _spmf_isspace(b::UInt8) = b == 0x20 || (0x09 <= b <= 0x0d)
+
+"""
+Parse nhanh dòng `bytes[lo:hi]` (không gồm '\\n') vào `buf`. Trả `_LINE_SKIP` (trống/metadata), `_LINE_OK`
+(buf chứa các item theo thứ tự gặp), hoặc `_LINE_FALLBACK` khi gặp ký tự ngoài [0-9] và khoảng trắng ASCII hay số
+tràn Int, để xử lý lại dòng bằng logic gốc.
+"""
+function _spmf_parse_line_fast!(buf::Vector{Int}, bytes::Vector{UInt8}, lo::Int, hi::Int)
+    empty!(buf)
+    k = lo
+    @inbounds while k <= hi && _spmf_isspace(bytes[k])
+        k += 1
+    end
+    k > hi && return _LINE_SKIP
+    @inbounds b = bytes[k]
+    (b == UInt8('#') || b == UInt8('%') || b == UInt8('@')) && return _LINE_SKIP
+    @inbounds while k <= hi
+        b = bytes[k]
+        if _spmf_isspace(b)
+            k += 1
+            continue
+        end
+        v = 0
+        while k <= hi
+            b = bytes[k]
+            _spmf_isspace(b) && break
+            d = Int(b) - 48
+            0 <= d <= 9 || return _LINE_FALLBACK             # '+', '-', chữ, byte ≥ 0x80, ...
+            v > (typemax(Int) - d) ÷ 10 && return _LINE_FALLBACK   # tràn: bản gốc báo "không phải số nguyên"
+            v = 10v + d
+            k += 1
+        end
+        push!(buf, v)
+    end
+    return _LINE_OK
+end
+
+"Giao dịch từ bộ đệm: sao chép; nếu chưa tăng ngặt thì sắp và bỏ trùng (cùng kết quả với sort!(unique!(x)))."
+function _spmf_transaction(buf::Vector{Int})
+    items = copy(buf)
+    m = length(items)
+    @inbounds for t in 2:m
+        if items[t] <= items[t - 1]
+            sort!(items)
+            w = 1
+            for u in 2:m
+                if items[u] != items[w]
+                    w += 1
+                    items[w] = items[u]
+                end
+            end
+            return resize!(items, w)
+        end
+    end
+    return items
+end
+
+"""
+Logic gốc của `read_spmf_simple` cho một dòng (dùng khi đường nhanh không xử lý được): trả `nothing` nếu bỏ dòng,
+ngược lại là giao dịch; lỗi ném ra giống hệt bản gốc.
+"""
+function _spmf_parse_line_simple(path::AbstractString, ln::Int, line::AbstractString)
+    s = strip(line)
+    (isempty(s) || s[1] in ('#', '%', '@')) && return nothing
+    items = Int[]
+    for tok in split(s)
+        v = tryparse(Int, tok)
+        v === nothing && throw(ArgumentError("$path, dòng $ln: \"$tok\" không phải số nguyên"))
+        v >= 0 || throw(ArgumentError("$path, dòng $ln: item âm ($v) không hợp lệ, item phải là số nguyên ≥ 0"))
+        push!(items, v)
+    end
+    return sort!(unique!(items))
 end
 
 """

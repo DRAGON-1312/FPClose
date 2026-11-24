@@ -27,7 +27,7 @@ Bảng~\ref{tab:ratio}, M1..M7 là các mức minsup của từng CSDL theo th�
 \end{table*}
 
 \textbf{Phân rã thời gian.} Ba thành phần đọc, khai thác, ghi trong Bảng~\ref{tab:breakdown} lấy từ cùng lần đo có
-tổng thời gian nhỏ nhất, nên tổng chỉ lệch do làm tròn. Cột cuối là thời gian khai thác của nhóm chia cho
+tổng thời gian là trung vị, nên tổng chỉ lệch do làm tròn. Bước khai thác gồm cả dựng FP-tree. Cột cuối là thời gian khai thác của nhóm chia cho
 \emph{tổng} thời gian của SPMF. Hai số không cùng phạm vi, nên cột này chỉ là chỉ số chẩn đoán: giá trị lớn hơn 1 cho
 biết riêng bước khai thác của nhóm đã lâu hơn toàn bộ thời gian chạy của SPMF, không cho biết tỉ lệ giữa hai bước
 khai thác.
@@ -65,14 +65,14 @@ kosarak & thưa & 0,4 & 212 & 1\,087\,185 & 28,14 \\
 \end{table}
 
 \begin{table}[H]
-\caption{Bộ nhớ và thời gian khai thác của ba biến thể (trung vị 3 lần đo)}
+\caption{Bộ nhớ và thời gian khai thác của ba biến thể basic, paper, optimized (trung vị 3 lần đo)}
 \label{tab:memory}
 \centering
 \fittable{\columnwidth}{memory_table}
 \end{table}
 
 \begin{table*}[!t]
-\caption{Ablation: thời gian khai thác của từng biến thể chia cho bản tối ưu (lớn hơn 1: chậm hơn bản tối ưu)}
+\caption{Ablation: thời gian khai thác của từng biến thể chia cho bản optimized (lớn hơn 1: chậm hơn bản optimized)}
 \label{tab:ablation}
 \centering
 \fittable{\textwidth}{ablation_table}
@@ -85,12 +85,12 @@ kosarak & thưa & 0,4 & 212 & 1\,087\,185 & 28,14 \\
 \fittable{\columnwidth}{scalability_table}
 \end{table}
 
-\begin{figure}[H]
+\begin{figure*}[!t]
 \centering
-\includegraphics[width=\columnwidth]{scalability_ratio.pdf}
-\caption{Thời gian chia cho thời gian ở 100\% trên các tập con của retail, đường chấm là tăng tuyến tính.}
-\label{fig:sc-ratio}
-\end{figure}
+\includegraphics[width=0.82\textwidth]{time_variants_grid.pdf}
+\caption{Thời gian khai thác của tám biến thể tại minsup giữa lưới (trung vị 3 lần đo, không gồm đọc và ghi file).}
+\label{fig:time-variants}
+\end{figure*}
 
 \begin{table}[H]
 \caption{Số tập đóng và thời gian (giây) theo độ dài giao dịch trung bình}
@@ -120,17 +120,18 @@ hai bản mã hóa item khác nhau, nhóm thống nhất dùng bản FIMI cho to
 V=\frac{T_{\max}-T_{\min}}{T_{\min}}\times 100\%.
 \label{eq:relrange}
 \end{equation}
-Trên 56 cấu hình minsup, trung vị của $V$ là 5{,}7\% với nhóm và 4{,}5\% với SPMF, tỉ lệ cấu hình có $V \le 20\%$ là
-91\% (51/56) với nhóm và 93\% (52/56) với SPMF. Trên thực nghiệm ablation (72 tổ hợp CSDL và biến thể), trung vị của
-$V$ đối với thời gian khai thác là 5{,}3\%. Ở bốn cấu hình (kosarak 0{,}3\%, 0{,}25\%, 0{,}2\% và T40I10D100K 3\%),
-khoảng giá trị của 3 lần đo hai phía chồng lên nhau, riêng kosarak 0{,}2\% có một lần SPMF chậm gấp 2{,}5 lần các
-lần còn lại.
+Trên 56 cấu hình minsup, trung vị của $V$ là 5{,}2\% với nhóm và 4{,}5\% với SPMF, tỉ lệ cấu hình có $V \le 20\%$ là
+95\% (53/56) với nhóm và 93\% (52/56) với SPMF. Trên thực nghiệm ablation (72 tổ hợp CSDL và biến thể), trung vị của
+$V$ đối với thời gian khai thác là 4{,}8\%. Chỉ ở một cấu hình (T40I10D100K 5\%), khoảng giá trị của 3 lần đo hai
+phía chồng lên nhau.
 
-\textbf{Phân tích độ nhạy.} Khi tính lại $r = T_{\text{nhóm}}/T_{\text{SPMF}}$ bằng trung vị thay cho giá trị nhỏ
-nhất trên 78 cấu hình (56 cấu hình minsup, 10 cấu hình khả năng mở rộng, 12 cấu hình độ dài giao dịch), tính trên số
-liệu chưa làm tròn, không cấu hình nào đảo chiều nhanh/chậm và 74/78 cấu hình giữ nguyên nhóm. Bốn cấu hình đổi nhóm
-đều nằm sát ranh giới, lớn nhất là kosarak 0{,}25\% ($r$ từ 1{,}17 xuống 1{,}00). Mức thay đổi tương đối lớn nhất của
-$r$ là 15{,}6\% (pumsb\_star 45\%: 1{,}48 so với 1{,}25).
+\textbf{Phân tích độ nhạy.} Khi tính lại $r = T_{\text{nhóm}}/T_{\text{SPMF}}$ bằng giá trị nhỏ nhất thay cho
+trung vị trên 78 cấu hình (56 cấu hình minsup, 10 cấu hình khả năng mở rộng, 12 cấu hình độ dài giao dịch), tính trên
+số liệu chưa làm tròn, 76/78 cấu hình giữ nguyên nhóm. Hai cấu hình đổi nhóm là T10I4D100K 0{,}2\% ($r$ là 1{,}16 theo
+giá trị nhỏ nhất và 1{,}08 theo trung vị) và kosarak 0{,}4\% (0{,}78 và 0{,}98). Một cấu hình đổi phía quanh 1 nhưng
+vẫn nằm trong vùng gần tương đương (tập con 25\% của retail, minsup 0{,}05\%: 1{,}01 và 0{,}97). Mức thay đổi tương đối
+lớn nhất của $r$ là 39\% (độ dài giao dịch 15, minsup 0{,}5\%: 0{,}22 và 0{,}31), cả hai giá trị đều thuộc nhóm nhanh
+hơn.
 
 \textbf{Dữ liệu tổng hợp theo độ dài giao dịch.} Một bộ 10\,000 giao dịch nền, mỗi giao dịch 32 item, được sinh với
 seed 2026. Miền 500 item được chia thành 200 pattern 4 item (125 pattern rời nhau và 75 pattern chọn ngẫu nhiên),
@@ -139,10 +140,10 @@ theo trọng số này rồi bổ sung item ngẫu nhiên đều cho đủ 32 it
 tiền tố của từng giao dịch nền với độ dài $\ell-2, \ldots, \ell+2$ (với $\ell=5$ là $\ell-1, \ldots, \ell+1$) chia đều
 và xáo trộn, nên mỗi giao dịch ở mức dài chứa giao dịch tương ứng ở mức ngắn hơn.
 
-\textbf{Máy thứ hai.} Thực nghiệm bộ nhớ (9 CSDL, 8 biến thể, 3 lần) được chạy lại trên máy Intel Core i5-13500H,
-16\,GB RAM, cùng phiên bản Julia và Java. Cả 216 lần chạy cho cùng tập kết quả như trên máy chính (cùng mã hash).
-Trong hai môi trường khảo sát, tổng bộ nhớ cấp phát quan sát được trùng khớp, RAM tối đa lệch trung vị 0{,}9\% và
-nhiều nhất 7{,}1\% (kosarak). Thời gian trên máy thứ hai không được trộn vào các hình của Chương~\ref{sec:experiments}.
+\textbf{Máy thứ hai.} Thực nghiệm bộ nhớ (9 CSDL, 8 biến thể, 3 lần) được chạy trên máy Intel Core i5-13500H,
+16\,GB RAM, cùng phiên bản Julia và Java, với phiên bản cài đặt trước khi có bộ đọc theo byte. Cả 216 lần chạy cho
+cùng tập kết quả (cùng mã hash) như lần đo của Chương~\ref{sec:experiments}. Vì phiên bản cài đặt khác nhau, RAM và
+thời gian trên máy này không được so với số liệu của Chương~\ref{sec:experiments}.
 
 \section{Tái lập thực nghiệm}
 \label{app:repro}
@@ -159,14 +160,20 @@ Mã nguồn ở \url{https://github.com/DRAGON-1312/FPClose}, dữ liệu ở
   \item \path{scripts/run_benchmark_grid.jl}: chạy các thực nghiệm correctness, runtime, memory, scalability và
         txlen (lưới minsup ở \path{data/meta/benchmark_config.csv}), mỗi cấu hình 3 lần.
   \item \path{scripts/benchmark.jl}: đo bộ nhớ và thời gian khi bật, tắt từng tối ưu.
+  \item \path{scripts/bench_reader.jl}: so bộ đọc theo dòng với bộ đọc theo byte, ghi ra
+        \path{results/optimization/reader_bench.csv}.
   \item \path{scripts/sensitivity_analysis.jl}: so tỉ lệ thời gian nhóm/SPMF theo giá trị nhỏ nhất và trung vị
         trên 78 cấu hình, ghi ra \path{results/runtime/runtime_sensitivity.csv}.
   \item \path{scripts/fptree_size.jl}: đo tỉ lệ kích thước FP-tree (Bảng~\ref{tab:fptree}), ghi ra
         \path{results/fptree/fptree_size.csv}.
-  \item \path{scripts/make_figures.jl}: sinh mọi hình và bảng của Chương~\ref{sec:experiments} từ các file CSV
-        trong \path{results/}.
+  \item \path{scripts/plot_results.jl}: vẽ mọi hình của Chương~\ref{sec:experiments} vào \path{results/figures/}
+        (trung vị các lần đo, mô tả từng hình trong \path{results/figures/README.md}).
+  \item \path{scripts/summarize_results.jl}: tổng hợp các bảng Markdown và CSV vào \path{results/summary/}.
+  \item \path{scripts/make_figures.jl}: sinh các bảng LaTeX của báo cáo vào thư mục \path{tables/} (trung vị các
+        lần đo).
 \end{itemize}
-Mỗi script chạy từ thư mục gốc của repo theo dạng \texttt{julia --project=. scripts/<tên>.jl}. Riêng
+Các script đo chạy từ thư mục gốc của repo theo dạng \texttt{julia --project=. scripts/<tên>.jl}, hai script vẽ và
+tổng hợp dùng \texttt{--project=scripts/plot}, còn \path{make_figures.jl} dùng \texttt{--project=scripts/plots}. Riêng
 \path{run_benchmark_grid.jl} mặc định chạy cả năm thực nghiệm và mất nhiều giờ, tham số \texttt{--only runtime} chỉ
 chạy phần thời gian chạy. Các điểm khác bài báo gốc được tóm tắt ở Mục~\ref{sec:deviations} và ghi chi tiết trong
 \path{docs/DEVIATIONS.md}.

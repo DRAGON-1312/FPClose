@@ -19,7 +19,7 @@
 #   5. Scalability         : scalability, scalability_table
 #   6. Độ dài giao dịch    : txlen, txlen_table
 #
-# Thời gian dùng cột `time_s` của các file *_summary.csv: nhỏ nhất của các lần đo, GỒM đọc và ghi file ở cả
+# Thời gian là TRUNG VỊ của các lần đo (tính từ CSV từng lần đo, giống scripts/plot_results.jl), GỒM đọc và ghi file ở cả
 # hai phía (SPMF: "Total time" tự in) để so công bằng. Bộ nhớ chỉ so các biến thể của nhóm với nhau: RSS của
 # Julia và heap JVM của SPMF đo hai thứ khác nhau.
 
@@ -47,7 +47,8 @@ const DATASET_STYLE = Dict(
     "pumsb_star" => ("#008300", :utriangle), "accidents" => ("#6250d6", :dtriangle),
     "retail" => ("#1baf7a", :circle), "T10I4D100K" => ("#eda100", :rect), "T40I10D100K" => ("#e87ba4", :diamond),
     "kosarak" => ("#008300", :utriangle))
-const VARIANT_SHORT = Dict("basic" => "cơ bản", "paper" => "chỉ cắt nhánh", "optimized" => "tối ưu")
+# Tên biến thể giống nhãn trong hình của scripts/plot_results.jl (basic, paper, optimized)
+const VARIANT_SHORT = Dict("basic" => "basic", "paper" => "paper", "optimized" => "optimized")
 const VARIANT = [("basic", "Cơ bản (tắt hết tối ưu)", "#1baf7a"),
                  ("paper", "Chỉ cắt nhánh (dòng 8)", "#eda100"),
                  ("optimized", "Tối ưu (bật hết)", "#2a78d6")]
@@ -131,13 +132,47 @@ log_ticks(values) = log_ticks(extrema(skipmissing(values))...)
 # Trục tuyến tính (không đặt mốc bằng log_ticks) cũng hiện số kiểu Việt Nam: 0,25 và 2 000
 default(formatter = tick_label)
 
-"Lưu hình `p` thành results/figures/<name>.pdf và .png; trả về `p` để notebook hiển thị."
+"""
+Hình của báo cáo nay do scripts/plot_results.jl (nhánh main) sinh vào results/figures/, cùng tên với một số hình ở đây.
+Để không ghi đè, script này mặc định KHÔNG lưu hình (chỉ trả về `p` để notebook hiển thị) và chỉ sinh bảng LaTeX.
+Đặt biến môi trường FPCLOSE_SAVE_FIGURES=1 nếu thật sự muốn lưu hình kiểu cũ.
+"""
+const WRITE_FIGURES = get(ENV, "FPCLOSE_SAVE_FIGURES", "0") == "1"
+
+"Lưu hình `p` thành results/figures/<name>.pdf và .png nếu WRITE_FIGURES; luôn trả về `p` để notebook hiển thị."
 function save_figure(p, name)
+    WRITE_FIGURES || return p
     for ext in ("pdf", "png")
         savefig(p, joinpath(FIGURES, "$name.$ext"))
     end
     println("Đã lưu results/figures/$name.{pdf,png}")
     return p
+end
+
+"""
+    median_summary(path, keys) -> Vector{Dict}
+
+Tổng hợp file CSV từng lần đo (status OK) thành một dòng cho mỗi (keys..., tool): `time_s` là TRUNG VỊ của
+`time_with_write_s`, cùng quy ước với scripts/plot_results.jl của main. Các cột khác (n_itemsets, n_transactions, ...)
+lấy từ lần đo đầu tiên vì không đổi giữa các lần.
+"""
+function median_summary(path, keys)
+    rows = [r for r in read_csv_rows(path) if r["status"] == "OK"]
+    groups = Dict{Vector{String},Vector{Dict{String,String}}}()
+    order = Vector{Vector{String}}()
+    for r in rows
+        k = [[r[c] for c in keys]; r["tool"]]
+        haskey(groups, k) || push!(order, k)
+        push!(get!(groups, k, Dict{String,String}[]), r)
+    end
+    out = Dict{String,String}[]
+    for k in order
+        g = groups[k]
+        d = copy(g[1])
+        d["time_s"] = string(median(num(r["time_with_write_s"]) for r in g))
+        push!(out, d)
+    end
+    return out
 end
 
 """
@@ -180,7 +215,7 @@ function save_table(name, header, rows; align = "l" * "r"^(length(header) - 1))
 end
 
 # Bảng tổng hợp thời gian (nhóm và SPMF) dùng chung cho mục 2 và 3
-const RUNTIME = read_csv_rows(joinpath(RESULTS, "runtime", "grid_runtime_summary.csv"))
+const RUNTIME = median_summary(joinpath(RESULTS, "runtime", "grid_runtime.csv"), ["dataset", "minsup_pct"])
 
 "Các mức minsup của một dataset, theo thứ tự trong CSV (từ cao xuống thấp)."
 minsups(rows, d) = unique(r["minsup_pct"] for r in rows if r["dataset"] == d)
@@ -281,17 +316,21 @@ function runtime_ratio_table()
 end
 
 """
-Phân rã thời gian của nhóm ở mức minsup thấp nhất của mỗi dataset (lần đo nhanh nhất của grid_runtime.csv):
-đọc file (`read_spmf`), khai thác (`fpclose`), ghi file (`write_spmf`), so với "Total time" của SPMF.
+Phân rã thời gian của nhóm ở mức minsup thấp nhất của mỗi dataset: đọc file (`read_spmf`), khai thác (`fpclose`,
+gồm dựng FP-tree), ghi file (`write_spmf`), so với "Total time" của SPMF. Ba thành phần lấy từ CÙNG lần đo có tổng
+thời gian là trung vị (với 3 lần đo: lần ở giữa), nên cộng lại đúng bằng tổng.
 """
 function runtime_breakdown_table()
-    raw = read_csv_rows(joinpath(RESULTS, "runtime", "grid_runtime.csv"))
+    raw = [r for r in read_csv_rows(joinpath(RESULTS, "runtime", "grid_runtime.csv")) if r["status"] == "OK"]
     rows = Vector{String}[]
     for d in DATASETS
         m = minsups(RUNTIME, d)[end]
-        best(tool) = argmin(r -> num(r["time_with_write_s"]),
-                            [r for r in raw if r["dataset"] == d && r["minsup_pct"] == m && r["tool"] == tool])
-        o, s = best("ours_opt"), best("spmf")
+        function mid(tool)
+            runs = sort([r for r in raw if r["dataset"] == d && r["minsup_pct"] == m && r["tool"] == tool];
+                        by = r -> num(r["time_with_write_s"]))
+            return runs[(length(runs) + 1) ÷ 2]
+        end
+        o, s = mid("ours_opt"), mid("spmf")
         t, rd, mi, wr, sp = num(o["time_with_write_s"]), num(o["read_s"]), num(o["mine_s"]), num(o["write_s"]),
                             num(s["time_with_write_s"])
         push!(rows, [d, pct(m), @sprintf("%.3f", rd), @sprintf("%.3f", mi), @sprintf("%.3f", wr), @sprintf("%.3f", t),
@@ -407,8 +446,8 @@ function memory_tables()
         t_opt = mem_median(d, "optimized", "mine_s")
         push!(rows, [d, @sprintf("%.3f", t_opt), (@sprintf("%.2f", mem_median(d, v, "mine_s") / t_opt) for v in variants)...])
     end
-    ablation_md = save_table("ablation_table", ["Dataset", "Tối ưu
-(s)", "Cơ bản", "Chỉ cắt nhánh", "Không
+    ablation_md = save_table("ablation_table", ["Dataset", "optimized
+(s)", "basic", "paper", "Không
 cắt nhánh",
                                                 "Không
 FP-array", "Không
@@ -428,7 +467,7 @@ end
 const MINSUP_LINE = Dict("0.1" => :solid, "0.05" => :dash, "0.5" => :solid, "0.2" => :dash)
 
 function scalability_figure_and_table()
-    sc = read_csv_rows(joinpath(RESULTS, "scalability", "scalability_summary.csv"))
+    sc = median_summary(joinpath(RESULTS, "scalability", "scalability.csv"), ["fraction_pct", "minsup_pct"])
     fracs = sort(unique(parse(Int, r["fraction_pct"]) for r in sc))
     t(f, m, tool) = num(only(r for r in sc if parse(Int, r["fraction_pct"]) == f && r["minsup_pct"] == m &&
                                               r["tool"] == tool)["time_s"])
@@ -473,7 +512,7 @@ end
 # Synthetic len05..len30 (10.000 giao dịch, 500 item), hai mức minsup. (a) thời gian; (b) số closed itemsets.
 
 function txlen_figure_and_table()
-    tx = read_csv_rows(joinpath(RESULTS, "txlen", "txlen_summary.csv"))
+    tx = median_summary(joinpath(RESULTS, "txlen", "txlen.csv"), ["avg_length", "minsup_pct"])
     lens = sort(unique(parse(Float64, r["avg_length"]) for r in tx))
     get(l, m, tool, col) = num(only(r for r in tx if parse(Float64, r["avg_length"]) == l && r["minsup_pct"] == m &&
                                                      r["tool"] == tool)[col])
@@ -528,7 +567,7 @@ function main()
     memory_tables()
     scalability_figure_and_table()
     txlen_figure_and_table()
-    println("Xong. Mọi hình và bảng nằm trong ", FIGURES)
+    println("Xong. Bảng nằm trong ", TABLES)
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__

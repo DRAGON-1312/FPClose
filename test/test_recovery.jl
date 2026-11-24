@@ -213,8 +213,9 @@ end
     demo = joinpath(@__DIR__, "..", "demo.jl")
     proj = joinpath(@__DIR__, "..")
     input = joinpath(RTOY, "pasquier99.txt")
-    julia(args...) = run(ignorestatus(pipeline(`$(Base.julia_cmd()) --project=$proj $demo $args`;
-                                              stdout = devnull, stderr = devnull)))
+    # ignorestatus bọc Cmd TRƯỚC rồi mới pipeline: Julia ≤ 1.12 không có ignorestatus(::CmdRedirect)
+    julia(args...) = run(pipeline(ignorestatus(`$(Base.julia_cmd()) --project=$proj $demo $args`);
+                                  stdout = devnull, stderr = devnull))
     dir = mktempdir()
     c, a, r = joinpath(dir, "sub", "closed.txt"), joinpath(dir, "all.txt"), joinpath(dir, "rules.txt")
     @test julia("--minsup", "40%", "--output-closed", c, "--output-all", a,

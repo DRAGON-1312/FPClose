@@ -18,3 +18,11 @@ MAX_SIDE = 400             # cạnh dài 400 px: đủ chi tiết cho SIFT, gi�
 SIFT_NFEATURES = 500
 
 CALTECH_URL = "https://data.caltech.edu/records/mzrjq-6wc02/files/caltech-101.zip?download=1"
+
+K_LIST = [100, 300]        # kích thước codebook thử
+N_SAMPLE_DESC = 150_000    # số descriptor train lấy mẫu để học codebook (~48% của ~316k)
+DATA_WORDS = ROOT / "data" / "words.npz"            # từ thị giác của mọi keypoint, k100 / k300 (bước 3)
+
+
+def codebook_path(k: int) -> Path:
+    return ROOT / "data" / f"codebook_k{k}.npy"     # tâm cụm (k, 128) float32

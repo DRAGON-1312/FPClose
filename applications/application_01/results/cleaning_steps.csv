@@ -1,0 +1,8 @@
+bước,mô tả,số dòng bị loại,số dòng còn lại
+0,Dữ liệu gốc,0,541909
+1,InvoiceNo hoặc StockCode thiếu/rỗng,0,541909
+2,Hóa đơn hủy (InvoiceNo bắt đầu bằng 'C'/'c'),9288,532621
+3,Quantity <= 0 hoặc thiếu,1336,531285
+4,UnitPrice <= 0 hoặc thiếu,1181,530104
+5,Description rỗng,0,530104
+6,"Mã không phải sản phẩm (AMAZONFEE, B, BANK CHARGES, C2, CRUK, D, DOT, M, PADS, POST, S; tiền tố GIFT_, DCGS)",2379,527725

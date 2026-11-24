@@ -47,3 +47,7 @@ data/raw/*
 # Output tạm của SPMF
 spmf_out*.txt
 *.spmf.out
+
+# Ứng dụng Chương 3: dữ liệu và output thô sinh lại được từ notebook
+applications/*/data/
+applications/*/out/

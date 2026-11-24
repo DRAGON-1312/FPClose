@@ -1,0 +1,146 @@
+% !TEX program = xelatex
+% Dòng trên báo cho VS Code (LaTeX Workshop) biên dịch bằng XeLaTeX thay vì pdfLaTeX; gói fontspec (font tiếng Việt)
+% chỉ chạy với XeLaTeX hoặc LuaLaTeX. latexmk đọc cấu hình trong latexmkrc cùng thư mục.
+% Báo cáo đồ án FPClose theo mẫu IEEE conference (IEEEtran). Biên dịch tay (tiếng Việt):
+%   cd docs/IEEE-conference-template-062824
+%   xelatex report.tex && xelatex report.tex
+% Hình lấy từ results/figures/ (sinh bởi scripts/make_figures.jl), bảng từ tables/ (cùng script).
+% Ba chương nằm trong chuong1.tex, chuong2.tex, chuong3.tex; Chương 1 và 3 hiện là khung (\todo màu đỏ).
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+% Toàn bộ báo cáo dùng Times New Roman: chữ thường, chữ không chân và chữ đơn cách (đường dẫn file, tên hàm) đều là
+% Times New Roman; công thức toán dùng Times của gói mathptmx. Máy không có Times New Roman thì dùng TeX Gyre Termes
+% (bản Times mã nguồn mở đi kèm MiKTeX/TeX Live). Chữ trong hình cũng là Times New Roman (scripts/make_figures.jl).
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{mathptmx}
+\usepackage[no-math]{fontspec}   % no-math: giữ font toán Times của mathptmx cho số và dấu = + ( )
+\IfFontExistsTF{Times New Roman}{\newcommand{\reportfont}{Times New Roman}}{\newcommand{\reportfont}{TeX Gyre Termes}}
+\setmainfont{\reportfont}
+\setsansfont{\reportfont}
+\setmonofont{\reportfont}
+% Dấu đầu dòng lấy từ font chữ (Times New Roman) thay cho ký hiệu toán \bullet của IEEEtran
+\renewcommand{\labelitemi}{\textbullet}
+\usepackage{graphicx}
+\usepackage{adjustbox}
+\usepackage{array}       % cột p{} căn trái trong bảng độ phức tạp (Mục 2.8)
+\usepackage{etoolbox}    % \patchcmd: sửa kiểu chú thích bảng bên dưới
+\usepackage{float}       % [H]: bảng, hình của Phụ lục A đứng đúng chỗ, không trôi sang Phụ lục B, C
+\usepackage{url}
+\usepackage{xcolor}
+% Liên kết bấm được trong PDF: \cite{...} nhảy tới Tài liệu tham khảo, \ref{...} tới hình, bảng, mục; \url{...} trỏ đúng
+% địa chỉ đầy đủ kể cả khi bị ngắt dòng. Link tô màu xanh đậm để dễ thấy chỗ bấm được; muốn chữ đen hoàn toàn (kiểu IEEE
+% thuần) thì thay \hypersetup bên dưới bằng \hypersetup{hidelinks}. Bookmark (mục lục bên trái trình đọc PDF) hiện
+% "Chương 1: ...", "Chương 2: ...", "Chương 3: ...". hyperref phải nạp sau cùng.
+\usepackage{hyperref}
+\definecolor{linkblue}{RGB}{0,51,153}
+\hypersetup{colorlinks=true, linkcolor=linkblue, citecolor=linkblue, urlcolor=linkblue,
+            bookmarksopen=true, bookmarksopenlevel=1,
+            pdftitle={Cài đặt và đánh giá thuật toán FPClose khai thác tập phổ biến đóng}}
+
+\graphicspath{{../../results/figures/}}
+% Đường dẫn file viết bằng \path{...} (gói url): cho ngắt dòng sau / _ . - để không làm giãn chữ cả dòng
+\renewcommand{\UrlBreaks}{\do\/\do\_\do\.\do\-}
+\renewcommand{\UrlFont}{\ttfamily\small}
+\renewcommand{\figurename}{Hình}
+\renewcommand{\tablename}{Bảng}
+\renewcommand{\refname}{Tài liệu tham khảo}
+\renewcommand{\abstractname}{Tóm tắt}
+
+\renewcommand{\IEEEkeywordsname}{Từ khóa}
+\renewcommand{\appendixname}{Phụ lục}
+
+% Báo cáo gồm 3 chương theo đề (mỗi chương là một \section). Đánh số theo kiểu bài báo gốc (Grahne & Zhu, TKDE 2005):
+% chương "Chương 2.", mục "2.3", mục con "2.3.1"; tham chiếu \ref tới mục hiện đúng số đó.
+% \todo{...}: chỗ còn phải viết, in chữ đỏ để dễ thấy; xóa hết trước khi nộp
+\newcommand{\todo}[1]{{\color{red}\itshape [Cần viết: #1]}}
+
+% Tiêu đề chương: IEEEtran dùng chữ hoa nhỏ (\scshape), Times New Roman không có kiểu này nên chữ to nhỏ lẫn lộn;
+% đổi thành chữ đậm, cùng một cỡ (giữ nguyên khoảng cách của IEEEtran)
+\makeatletter
+% Chú thích bảng: IEEEtran in chữ hoa nhỏ (\scshape), làm ký hiệu toán và tiếng Việt bị đổi dạng (R_tree thành R_TREE);
+% bỏ \scshape để chú thích bảng dùng chữ thường như chú thích hình
+\patchcmd{\@makecaption}{\normalfont\footnotesize\scshape #2}{\normalfont\footnotesize #2}{}{\PackageWarning{report}{Không sửa được chú thích bảng}}
+\def\section{\@startsection{section}{1}{\z@}{1.5ex plus 1.5ex minus 0.5ex}%
+{0.7ex plus 1ex minus 0ex}{\normalfont\normalsize\centering\bfseries}}
+% Tiêu đề chương in hoa toàn bộ; bookmark PDF vẫn giữ chữ thường
+\let\IEEEsection\section
+\renewcommand{\section}{\@ifstar{\upsecstar}{\upsec}}
+\newcommand{\upsecstar}[1]{\IEEEsection*{\MakeUppercase{#1}}}
+\newcommand{\upsec}[1]{\IEEEsection[#1]{\MakeUppercase{#1}}}
+\makeatother
+
+\renewcommand{\thesection}{\arabic{section}}
+\renewcommand{\thesectiondis}{CHƯƠNG~\thesection.}
+\renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
+\renewcommand{\thesubsectiondis}{\thesubsection}
+\renewcommand{\thesubsubsection}{\thesubsection.\arabic{subsubsection}}
+\renewcommand{\thesubsubsectiondis}{\thesubsubsection}
+
+% \colfig{file}{chú thích}{nhãn}: một biểu đồ vừa một cột, như các hình của bài báo gốc (mỗi hình một CSDL)
+\newcommand{\colfig}[3]{\begin{figure}[!t]\centering\includegraphics[width=\columnwidth]{#1}\caption{#2}\label{#3}%
+\end{figure}}
+% Cho phép nhiều hình nhỏ trên một trang, để hình đứng gần đoạn văn nhắc tới chúng
+\setcounter{topnumber}{3}
+\setcounter{bottomnumber}{2}
+\setcounter{totalnumber}{5}
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.6}
+\renewcommand{\textfraction}{0.1}
+\renewcommand{\floatpagefraction}{0.8}
+\renewcommand{\dbltopfraction}{0.9}
+\renewcommand{\dblfloatpagefraction}{0.8}
+
+% \fittable{độ rộng tối đa}{tên bảng trong tables/}: chỉ thu nhỏ khi bảng rộng hơn khổ, không phóng to
+% (chữ cỡ footnotesize, khoảng cách cột hẹp để bảng ít bị thu nhỏ)
+\newcommand{\fittable}[2]{\begin{adjustbox}{max width=#1}\footnotesize\setlength{\tabcolsep}{3.5pt}%
+\input{tables/#2}\end{adjustbox}}
+
+\begin{document}
+
+\title{Cài đặt và đánh giá thuật toán FPClose khai thác tập phổ biến đóng}
+
+\author{\IEEEauthorblockN{Nhóm FPClose}
+\IEEEauthorblockA{Khoa Công nghệ Thông tin, Trường Đại học Khoa học Tự nhiên, ĐHQG-HCM}}
+
+\maketitle
+
+\begin{abstract}
+Báo cáo trình bày cài đặt lại từ đầu bằng Julia thuật toán FPClose (Grahne và Zhu) khai thác các tập phổ biến đóng.
+Chương~1 mô tả cài đặt, kiểm thử và các tối ưu, Chương~2 đánh giá trên chín CSDL benchmark so với SPMF về tính đúng
+đắn, thời gian theo minsup, số itemset, bộ nhớ, khả năng mở rộng và ảnh hưởng của độ dài giao dịch, Chương~3 áp dụng
+cài đặt vào hai bài toán thực tế.
+% TODO (cả nhóm): hoàn thiện tóm tắt khi đủ 3 chương, nêu kết quả chính của từng chương.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Khai thác dữ liệu, tập phổ biến đóng, FPClose, FP-tree, luật kết hợp, Julia.
+\end{IEEEkeywords}
+
+\input{chuong1}   % Chương 1: Cài đặt
+\input{chuong2}   % Chương 2: Thực nghiệm và đánh giá
+\input{chuong3}   % Chương 3: Ứng dụng thực tế
+
+% Thứ tự: 3 chương, Tài liệu tham khảo, rồi Phụ lục ở trang riêng (đề: cả hai không tính vào giới hạn 10–15 trang).
+\pdfbookmark[0]{Tài liệu tham khảo}{references}
+\begin{thebibliography}{00}
+\bibitem{grahne2005} G. Grahne and J. Zhu, ``Fast algorithms for frequent itemset mining using FP-trees,''
+\textit{IEEE Trans. Knowl. Data Eng.}, vol. 17, no. 10, pp. 1347--1362, 2005.
+\bibitem{grahne2003} G. Grahne and J. Zhu, ``Efficiently using prefix-trees in mining frequent itemsets,'' in
+\textit{Proc. IEEE ICDM Workshop on Frequent Itemset Mining Implementations (FIMI'03)}, CEUR Workshop Proc., vol. 90, 2003.
+\bibitem{han2000} J. Han, J. Pei, and Y. Yin, ``Mining frequent patterns without candidate generation,'' in
+\textit{Proc. ACM SIGMOD Int. Conf. Management of Data}, 2000, pp. 1--12.
+\bibitem{pasquier1999} N. Pasquier, Y. Bastide, R. Taouil, and L. Lakhal, ``Discovering frequent closed itemsets for
+association rules,'' in \textit{Proc. Int. Conf. Database Theory (ICDT)}, LNCS 1540, 1999, pp. 398--416.
+\bibitem{spmf} P. Fournier-Viger \textit{et al.}, ``The SPMF open-source data mining library version 2,'' in
+\textit{Proc. ECML PKDD 2016, Part III}, LNCS 9853, 2016, pp. 36--40.
+\bibitem{fimi03} B. Goethals and M. J. Zaki, ``Advances in frequent itemset mining implementations: report on
+FIMI'03,'' \textit{ACM SIGKDD Explorations}, vol. 6, no. 1, pp. 109--117, 2004.
+\bibitem{chen2016} J. Chen and J. Revels, ``Robust benchmarking in noisy environments,'' in \textit{Proc. IEEE High
+Performance Extreme Computing Conf. (HPEC)}, 2016.
+\bibitem{uci_mushroom} ``Mushroom,'' UCI Machine Learning Repository, 1981, dataset, doi: 10.24432/C5959T.
+\end{thebibliography}
+
+\input{phuluc}    % Phụ lục: số liệu chi tiết của Chương 2, bắt đầu ở trang mới
+
+\end{document}

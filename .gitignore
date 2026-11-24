@@ -2,6 +2,7 @@
 tdke04.pdf
 *.pdf
 !docs/Report.pdf
+!results/figures/*.pdf
 
 # Output tạm
 *.out
@@ -44,3 +45,12 @@ data/raw/*
 spmf_out*.txt
 *.spmf.out
 
+
+# File tạm khi biên dịch LaTeX (báo cáo)
+docs/**/*.aux
+docs/**/*.log
+docs/**/*.fls
+docs/**/*.fdb_latexmk
+docs/**/*.out
+docs/**/*.xdv
+docs/**/report.synctex.gz

@@ -1,0 +1,11 @@
+dataset,source,transaction_count,unique_transactions,duplicate_occurrences,distinct_items,min_item_id,max_item_id,id_offset,sha256
+chess,https://www.philippe-fournier-viger.com/spmf/publicdatasets/chess.txt,3196,3196,0,75,1,75,0,341d0ff8676e053dd3b417d61f84c732736154f987ce56975a099b07460957f5
+mushrooms,https://fimi.uantwerpen.be/data/mushroom.dat,8124,8124,0,119,1,119,0,06206c73983251a9488414c4379a030e836bbeb6fe9eff1b5624a0193a811640
+connect,https://www.philippe-fournier-viger.com/spmf/publicdatasets/connect.txt,67557,67557,0,129,1,129,0,650a92d7803c465fb08fc0e58de087ceab84cd5f0de4c6816b523774dcd6a2c9
+pumsb_star,https://cs.rpi.edu/~zaki/Workshops/FIMI/data/pumsb_star.dat.gz,49046,48474,572,2088,1,7117,1,a9ecd5c882ffff9e0042703253d0eef3453f747537e0027c9be275a8aaf38f2f
+accidents,https://www.philippe-fournier-viger.com/spmf/publicdatasets/accidents.txt,340183,339898,285,468,1,468,0,c2b3762e3f8f0ca241c35359b24e3015fd34ea241d09f94b42ae44ed42914726
+retail,https://www.philippe-fournier-viger.com/spmf/publicdatasets/retail.txt,88162,83490,4672,16470,1,16470,0,417563fb5feb3711d4f761230ca78b76d100fe2ee0d3178fcc4fbb000d8d1c36
+T10I4D100K,https://www.philippe-fournier-viger.com/spmf/publicdatasets/T10I4D100K.txt,100000,89135,10865,870,1,1000,0,fb2dd118ff822ff88d724e47d5a4cea6531c0bd6294397db4d36890c1450f1a7
+T40I10D100K,https://cs.rpi.edu/~zaki/Workshops/FIMI/data/T40I10D100K.dat,100000,99931,69,942,1,1000,1,e3d86e8cf6eec0093528e238ab8a4ba10471375c00a9298144edb462caadb28c
+kosarak,https://cs.rpi.edu/~zaki/Workshops/FIMI/data/kosarak.dat.gz,990002,606770,383232,41270,1,41270,0,cb4270629d786207143bb3c4002c36aedc3824f55294c7b3d5538c8023cec314
+mushrooms_spmf_raw,SPMF (không dùng trong thực nghiệm),8416,8124,292,119,1,128,,3bc1159b06baa231932810d1d58cbb958684be88b6daa8e3672f8d76c5f0eb98

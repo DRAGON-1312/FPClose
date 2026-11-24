@@ -13,10 +13,9 @@ SHA của spmf.jar, timeout 600 s, 3 lần đo cho mỗi cấu hình). Cột `ma
   Lưu ý: các file `*_summary.csv` do `run_benchmark_grid.jl` sinh ra lấy giá trị **nhỏ nhất**, nên số trên hình có thể hơi
   khác số trong các file đó.
 - **TIMEOUT/SKIPPED/FAILED**: một cấu hình không có lần OK nào sẽ không được vẽ, và script in cảnh báo ra console.
-- **Ghi file**: khi so với SPMF, dùng `time_with_write_s` = đọc + khai thác + ghi output. SPMF luôn ghi file, và giá trị
-  của nó là "Total time" do SPMF tự in. `time_no_write_s` (chỉ có ở phía nhóm) = đọc + khai thác.
-- **Màu và marker cố định**: FPClose (ours) màu xanh với marker tròn ●; SPMF màu cam với marker tam giác ▲.
-  Đường nét đứt có marker rỗng là "ours (không ghi file)".
+- **Ghi file**: mọi hình so sánh với SPMF dùng `time_with_write_s` cho cả hai bên (đọc + khai thác + ghi output). SPMF
+  luôn ghi file, và giá trị của nó là "Total time" do SPMF tự in.
+- **Màu và marker cố định**: FPClose (nhóm) màu xanh với marker tròn ●; SPMF màu cam với marker tam giác ▲.
 - **Trục minsup của các hình runtime** đặt các điểm **cách đều nhau** theo thứ tự 1..k, không tỷ lệ với giá trị minsup.
   Nhãn trục là các mức minsup đã đo, giảm dần từ trái sang phải. Cách này tránh đè chữ khi các mức sát nhau, ví dụ
   0,3 / 0,25 / 0,2 hoặc 1,5 / 1,25 / 1. Vì vậy khoảng cách ngang giữa hai điểm không phản ánh độ chênh của minsup.
@@ -27,18 +26,20 @@ SHA của spmf.jar, timeout 600 s, 3 lần đo cho mỗi cấu hình). Cột `ma
 
 ## Danh sách hình
 
-| File (`.png` + `.pdf`) | CSV nguồn | Cột dùng | Cách tính |
-|---|---|---|---|
-| `runtime_<dataset>` (mỗi dataset một hình) | `runtime/grid_runtime.csv` | `time_with_write_s` (ours, SPMF), `time_no_write_s` (ours, nét đứt), `minsup_pct`, `tool`, `status` | Trung vị theo (dataset, minsup, tool). Trục y log; trục x cách đều theo các mức minsup |
-| `runtime_grid` | như trên | như trên | Lưới 3 cột gồm mọi dataset. Chú giải chỉ ở ô đầu tiên |
-| `itemsets_vs_minsup` | `runtime/grid_runtime.csv` | `n_itemsets` (của ours, thiếu thì lấy của SPMF) | Tiêu đề "Số tập phổ biến đóng theo minsup". Mỗi dataset một đường. Trục x và trục y đều dùng thang log |
-| `memory_variants_grid` | `memory/basic_vs_optimized.csv` | `mem_delta_mb`, `variant` | Trung vị theo (dataset, variant), đo tại minsup giữa lưới (ghi trong tiêu đề ô) |
-| `time_variants_grid` | `memory/basic_vs_optimized.csv` | `mine_s` | Trung vị. Chỉ tính thời gian khai thác, không gồm đọc/ghi |
-| `ablation_time_relative` | `memory/basic_vs_optimized.csv` | `mine_s` | Với mỗi biến thể, lấy `mine_s / mine_s(optimized)` trên từng dataset rồi tính trung bình nhân qua các dataset. Đường nét đứt ở mức 1 |
-| `scalability_time` | `scalability/scalability.csv` | `fraction_pct`, `minsup_pct`, `time_with_write_s` | Trung vị. Mỗi minsup một cặp đường ours/SPMF. Trục y tuyến tính, bắt đầu từ 0 |
-| `txlen_time` | `txlen/txlen.csv` | `avg_length`, `minsup_pct`, `time_with_write_s` | Trung vị. Mỗi minsup một cặp đường. Trục y log |
-| `txlen_itemsets` | `txlen/txlen.csv` | `avg_length`, `minsup_pct`, `n_itemsets` | Ours vẽ thành đường; SPMF chỉ vẽ marker rỗng (hai bên trùng nhau nếu kết quả khớp). Trục y log |
-| `time_breakdown` | `runtime/grid_runtime.csv`, `memory/basic_vs_optimized.csv` | `read_s`, `mine_s`, `write_s`, `time_no_write_s` (runtime, `ours_opt`); `minsup_pct` (memory, `optimized`) | Cột chồng 100% cho mỗi dataset, đo tại minsup của memory CSV. Xem mục bên dưới |
+| File (`.png` + `.pdf`) | CSV nguồn | Cột dùng | Trục hoành | Trục tung | Cách tính |
+|---|---|---|---|---|---|
+| `runtime_<dataset>` (mỗi dataset một hình) | `runtime/grid_runtime.csv` | `time_with_write_s` (nhóm và SPMF), `minsup_pct`, `tool`, `status` | minsup (%), **trục thứ tự**: các mức đặt cách đều 1..k, nhãn là giá trị minsup giảm dần | Thời gian (s), **thang log**, mốc 1–2–5 | Trung vị theo (dataset, minsup, tool). Hai đường: FPClose (nhóm) và SPMF |
+| `runtime_grid` | như trên | như trên | như trên (mỗi ô một dataset) | như trên | Lưới 3 cột gồm mọi dataset. Chú giải chỉ ở ô đầu tiên |
+| `itemsets_vs_minsup` | `runtime/grid_runtime.csv` | `n_itemsets` (của nhóm, thiếu thì lấy của SPMF) | minsup (%), **thang log**, giảm dần, mốc 1–2–5 | Số tập phổ biến đóng, **thang log** | Tiêu đề "Số tập phổ biến đóng theo minsup". Mỗi dataset một đường |
+| `memory_variants_grid` | `memory/basic_vs_optimized.csv` | `mem_delta_mb`, `variant` | Biến thể (**trục phân loại**) | Bộ nhớ thực dùng (MB), **tuyến tính** từ 0 | Trung vị theo (dataset, variant), đo tại minsup giữa lưới (ghi trong tiêu đề ô) |
+| `time_variants_grid` | `memory/basic_vs_optimized.csv` | `mine_s` | Biến thể (**trục phân loại**) | Thời gian khai thác (s), **tuyến tính** từ 0 | Trung vị. Chỉ tính thời gian khai thác, không gồm đọc/ghi |
+| `ablation_time_relative` | `memory/basic_vs_optimized.csv` | `mine_s` | Biến thể (**trục phân loại**) | Thời gian / optimized, **tuyến tính** từ 0 | Với mỗi biến thể, lấy `mine_s / mine_s(optimized)` trên từng dataset rồi tính trung bình nhân qua các dataset. Đường nét đứt ở mức 1 |
+| `scalability_time` | `scalability/scalability.csv` | `fraction_pct`, `minsup_pct`, `time_with_write_s` | Phần trăm giao dịch của Retail (%), **tuyến tính**, mốc tại các mức đã đo | Thời gian (s), **tuyến tính** từ 0 | Trung vị. Mỗi minsup một cặp đường nhóm/SPMF |
+| `txlen_time` | `txlen/txlen.csv` | `avg_length`, `minsup_pct`, `time_with_write_s` | Độ dài giao dịch trung bình, **tuyến tính**, mốc tại các mức đã đo | Thời gian (s), **thang log**, mốc 1–2–5 | Trung vị. Mỗi minsup một cặp đường nhóm/SPMF |
+| `txlen_itemsets` | `txlen/txlen.csv` | `avg_length`, `minsup_pct`, `n_itemsets` | Độ dài giao dịch trung bình, **tuyến tính** | Số tập phổ biến đóng, **thang log**, mốc 1–2–5 | Nhóm vẽ thành đường; SPMF chỉ vẽ marker rỗng (hai bên trùng nhau nếu kết quả khớp) |
+| `time_breakdown` | `runtime/grid_runtime.csv`, `memory/basic_vs_optimized.csv` | `read_s`, `mine_s`, `write_s`, `time_no_write_s` (runtime, `ours_opt`); `minsup_pct` (memory, `optimized`) | Dataset kèm minsup (**trục phân loại**) | Tỷ lệ thời gian (%), **tuyến tính** 0–100 | Cột chồng 100% cho mỗi dataset, đo tại minsup của memory CSV. Xem mục bên dưới |
+
+`ours_opt` là giá trị của cột `tool` trong CSV (mã của cài đặt nhóm), không phải nhãn hiển thị trên hình.
 
 ### Phân rã thời gian (`time_breakdown`)
 
@@ -77,7 +78,7 @@ script.
 | −đếm chính xác | `opt_no_exact_count` | optimized nhưng tắt đếm chính xác |
 | −CFI-tree rút gọn | `opt_no_reduced_cfitree` | optimized nhưng tắt CFI-tree rút gọn |
 
-Màu cột: optimized màu xanh (cùng màu của ours), các biến thể ablation màu xanh nhạt, basic/paper màu xám.
+Màu cột: optimized màu xanh (cùng màu của nhóm), các biến thể ablation màu xanh nhạt, basic/paper màu xám.
 
 ## Bộ nhớ: đọc thế nào, và vì sao không so với SPMF
 

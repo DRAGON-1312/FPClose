@@ -30,7 +30,15 @@ Bảng~\ref{tab:ratio}, M1..M7 là các mức minsup của từng CSDL theo th�
 tổng thời gian là trung vị, nên tổng chỉ lệch do làm tròn. Bước khai thác gồm cả dựng FP-tree. Cột cuối là thời gian khai thác của nhóm chia cho
 \emph{tổng} thời gian của SPMF. Hai số không cùng phạm vi, nên cột này chỉ là chỉ số chẩn đoán: giá trị lớn hơn 1 cho
 biết riêng bước khai thác của nhóm đã lâu hơn toàn bộ thời gian chạy của SPMF, không cho biết tỉ lệ giữa hai bước
-khai thác.
+khai thác. Hình~\ref{fig:breakdown} vẽ cùng phân rã nhưng tại minsup giữa lưới, mức dùng cho thực nghiệm bộ nhớ.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\columnwidth]{time_breakdown.pdf}
+\caption{Tỉ lệ thời gian đọc file, dựng FP-tree và khai thác, ghi file của nhóm tại minsup giữa lưới (trung vị 3 lần
+đo). Bảng~\ref{tab:breakdown} ở trên là phân rã tại minsup thấp nhất.}
+\label{fig:breakdown}
+\end{figure}
 
 \textbf{Tỉ lệ kích thước FP-tree.} Mức chia sẻ tiền tố được đo bằng
 \begin{equation}
@@ -65,7 +73,7 @@ kosarak & thưa & 0,4 & 212 & 1\,087\,185 & 28,14 \\
 \end{table}
 
 \begin{table}[H]
-\caption{Bộ nhớ và thời gian khai thác của ba biến thể basic, paper, optimized (trung vị 3 lần đo)}
+\caption{Bộ nhớ và thời gian khai thác của ba biến thể basic, pruning-only, optimized (trung vị 3 lần đo)}
 \label{tab:memory}
 \centering
 \fittable{\columnwidth}{memory_table}
@@ -87,10 +95,21 @@ kosarak & thưa & 0,4 & 212 & 1\,087\,185 & 28,14 \\
 
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=0.82\textwidth]{time_variants_grid.pdf}
-\caption{Thời gian khai thác của tám biến thể tại minsup giữa lưới (trung vị 3 lần đo, không gồm đọc và ghi file).}
-\label{fig:time-variants}
+\includegraphics[width=0.82\textwidth]{memory_variants_grid.pdf}
+\caption{RAM tối đa tăng thêm so với mức đo ngay sau warm-up (\textit{incremental peak RSS}) của tám biến thể tại
+minsup giữa lưới, trung vị 3 lần đo. Đây không phải bộ nhớ riêng của thuật toán (xem Mục~\ref{sec:memory}). Biến thể
+``$-$X'' là bản optimized tắt riêng tối ưu X, nhãn \texttt{paper} là bản pruning-only.}
+\label{fig:memory-grid}
 \end{figure*}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\columnwidth]{ablation_time_relative.pdf}
+\caption{Thời gian khai thác của từng biến thể chia cho bản optimized, trung bình nhân trên 9 CSDL. Đường nét đứt ở
+mức 1. Thời gian khai thác của từng biến thể trên từng CSDL được vẽ trong
+\texttt{results/figures/time\_variants\_grid.pdf} của repo.}
+\label{fig:ablation}
+\end{figure}
 
 \begin{table}[H]
 \caption{Số tập đóng và thời gian (giây) theo độ dài giao dịch trung bình}
@@ -130,8 +149,12 @@ trung vị trên 78 cấu hình (56 cấu hình minsup, 10 cấu hình khả nă
 số liệu chưa làm tròn, 76/78 cấu hình giữ nguyên nhóm. Hai cấu hình đổi nhóm là T10I4D100K 0{,}2\% ($r$ là 1{,}16 theo
 giá trị nhỏ nhất và 1{,}08 theo trung vị) và kosarak 0{,}4\% (0{,}78 và 0{,}98). Một cấu hình đổi phía quanh 1 nhưng
 vẫn nằm trong vùng gần tương đương (tập con 25\% của retail, minsup 0{,}05\%: 1{,}01 và 0{,}97). Mức thay đổi tương đối
-lớn nhất của $r$ là 39\% (độ dài giao dịch 15, minsup 0{,}5\%: 0{,}22 và 0{,}31), cả hai giá trị đều thuộc nhóm nhanh
-hơn.
+lớn nhất của $r$, tính bằng
+\begin{equation}
+\Delta_r = \frac{|r_{\text{median}}-r_{\min}|}{r_{\min}}\times 100\%
+\end{equation}
+trên số liệu chưa làm tròn, là 39\% (độ dài giao dịch 15, minsup 0{,}5\%: $r_{\min}=0{,}221$ và
+$r_{\text{median}}=0{,}308$), cả hai giá trị đều thuộc nhóm nhanh hơn.
 
 \textbf{Dữ liệu tổng hợp theo độ dài giao dịch.} Một bộ 10\,000 giao dịch nền, mỗi giao dịch 32 item, được sinh với
 seed 2026. Miền 500 item được chia thành 200 pattern 4 item (125 pattern rời nhau và 75 pattern chọn ngẫu nhiên),
@@ -157,6 +180,8 @@ Mã nguồn ở \url{https://github.com/DRAGON-1312/FPClose}, dữ liệu ở
         và offset của từng CSDL đã chuẩn hóa (kèm bản mushrooms của SPMF), ghi ra
         \path{results/dataset_validation.csv}.
   \item \path{scripts/reference_check.jl}: kiểm tra SPMF với FPclose gốc của kho FIMI.
+  \item Phép so tính đúng đắn chạy lại trên mã nguồn dùng để đo hiệu năng (mã nguồn thuật toán trùng commit ghi trong
+        \path{results/ENVIRONMENT.md}) nằm ở \path{results/correctness/grid_correctness_hyt_v2.csv}.
   \item \path{scripts/run_benchmark_grid.jl}: chạy các thực nghiệm correctness, runtime, memory, scalability và
         txlen (lưới minsup ở \path{data/meta/benchmark_config.csv}), mỗi cấu hình 3 lần.
   \item \path{scripts/benchmark.jl}: đo bộ nhớ và thời gian khi bật, tắt từng tối ưu.
@@ -170,10 +195,12 @@ Mã nguồn ở \url{https://github.com/DRAGON-1312/FPClose}, dữ liệu ở
         (trung vị các lần đo, mô tả từng hình trong \path{results/figures/README.md}).
   \item \path{scripts/summarize_results.jl}: tổng hợp các bảng Markdown và CSV vào \path{results/summary/}.
   \item \path{scripts/make_figures.jl}: sinh các bảng LaTeX của báo cáo vào thư mục \path{tables/} (trung vị các
-        lần đo).
+        lần đo) và hình RAM tối đa basic/optimized (\path{results/figures/peak_rss_basic_optimized.pdf}).
 \end{itemize}
-Các script đo chạy từ thư mục gốc của repo theo dạng \texttt{julia --project=. scripts/<tên>.jl}, hai script vẽ và
-tổng hợp dùng \texttt{--project=scripts/plot}, còn \path{make_figures.jl} dùng \texttt{--project=scripts/plots}. Riêng
+Các script đo chạy từ thư mục gốc của repo theo dạng \texttt{julia --project=. scripts/<tên>.jl}. Repo có hai môi
+trường vẽ riêng: \path{scripts/plot/} cho \path{plot_results.jl} và \path{summarize_results.jl}, \path{scripts/plots/}
+cho \path{make_figures.jl}, ví dụ \texttt{julia --project=scripts/plot scripts/plot\_results.jl}. Tập con retail
+và dữ liệu tổng hợp được sinh với seed 2026 trong \texttt{data\_setup.jl}. Riêng
 \path{run_benchmark_grid.jl} mặc định chạy cả năm thực nghiệm và mất nhiều giờ, tham số \texttt{--only runtime} chỉ
 chạy phần thời gian chạy. Các điểm khác bài báo gốc được tóm tắt ở Mục~\ref{sec:deviations} và ghi chi tiết trong
 \path{docs/DEVIATIONS.md}.

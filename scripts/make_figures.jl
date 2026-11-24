@@ -47,8 +47,8 @@ const DATASET_STYLE = Dict(
     "pumsb_star" => ("#008300", :utriangle), "accidents" => ("#6250d6", :dtriangle),
     "retail" => ("#1baf7a", :circle), "T10I4D100K" => ("#eda100", :rect), "T40I10D100K" => ("#e87ba4", :diamond),
     "kosarak" => ("#008300", :utriangle))
-# Tên biến thể giống nhãn trong hình của scripts/plot_results.jl (basic, paper, optimized)
-const VARIANT_SHORT = Dict("basic" => "basic", "paper" => "paper", "optimized" => "optimized")
+# Tên biến thể trong bảng: basic, pruning-only (tên nội bộ và nhãn trong hình của main là "paper"), optimized
+const VARIANT_SHORT = Dict("basic" => "basic", "paper" => "pruning-only", "optimized" => "optimized")
 const VARIANT = [("basic", "Cơ bản (tắt hết tối ưu)", "#1baf7a"),
                  ("paper", "Chỉ cắt nhánh (dòng 8)", "#eda100"),
                  ("optimized", "Tối ưu (bật hết)", "#2a78d6")]
@@ -424,6 +424,32 @@ function memory_figure()
                 "memory_basic_vs_optimized")
 end
 
+"""
+Hình chính của Mục 2.5: RAM tối đa của cả tiến trình (peak RSS) của bản basic và optimized tại minsup giữa lưới, trung
+vị 3 lần đo. Hình này không có trong scripts/plot_results.jl nên luôn được lưu (tên riêng, không trùng hình của main),
+dùng font DejaVu Sans và màu giống các hình của main. Trục tung bắt đầu từ 0, không cắt trục để phóng đại chênh lệch.
+"""
+function peak_rss_figure()
+    x = 1:length(DATASETS)
+    w = 0.38
+    labels = ["$d ($(pct(mem_minsup(d))))" for d in DATASETS]
+    p = plot(; fontfamily = "DejaVu Sans", titlefontsize = 8, guidefontsize = 7, tickfontsize = 6, legendfontsize = 6,
+             ylabel = "RAM tối đa của tiến trình (MB)", xticks = (x, labels), xrotation = 45, legend = :topleft,
+             ylims = (0, 2200), size = (350, 260), left_margin = 2Plots.mm, bottom_margin = 2Plots.mm,
+             gridalpha = 0.25, grid = :y)
+    for (k, (v, label, color)) in enumerate((("basic", "basic", "#b0b0b0"), ("optimized", "optimized", "#4169e1")))
+        bar!(p, x .+ (k - 1.5) * w, [mem_median(d, v, "peak_mem_mb") for d in DATASETS];
+             bar_width = w * 0.95, color = color, linewidth = 0, label = label)
+    end
+    base = median(num(r["baseline_mem_mb"]) for r in MEMORY)
+    hline!(p, [base]; color = INK, linestyle = :dash, linewidth = 1, label = @sprintf("mốc sau warm-up ≈ %.0f MB", base))
+    for ext in ("pdf", "png")
+        savefig(p, joinpath(FIGURES, "peak_rss_basic_optimized.$ext"))
+    end
+    println("Đã lưu results/figures/peak_rss_basic_optimized.{pdf,png}")
+    return p
+end
+
 function memory_tables()
     rows = Vector{String}[]
     for d in DATASETS, (v, label, _) in VARIANT
@@ -447,7 +473,8 @@ function memory_tables()
         push!(rows, [d, @sprintf("%.3f", t_opt), (@sprintf("%.2f", mem_median(d, v, "mine_s") / t_opt) for v in variants)...])
     end
     ablation_md = save_table("ablation_table", ["Dataset", "optimized
-(s)", "basic", "paper", "Không
+(s)", "basic", "pruning-
+only", "Không
 cắt nhánh",
                                                 "Không
 FP-array", "Không
@@ -564,6 +591,7 @@ function main()
     runtime_breakdown_table()
     itemsets_figure()
     memory_figure()
+    peak_rss_figure()
     memory_tables()
     scalability_figure_and_table()
     txlen_figure_and_table()

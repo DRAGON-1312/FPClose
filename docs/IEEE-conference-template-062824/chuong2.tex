@@ -80,17 +80,29 @@ chỉ một phía có, $D$ là các itemset có ở cả hai phía nhưng khác 
 phía, nên itemset thừa ở phía nhóm cũng bị tính là sai.
 
 Bảng~\ref{tab:correctness} cho thấy cài đặt của nhóm khớp hoàn toàn với SPMF về \textit{closed itemset} và support
-trên cả 56 cấu hình, với tổng cộng 848\,998 lượt kết quả được đối chiếu qua các cấu hình. Khả năng khôi phục mọi
-\textit{frequent itemset} từ tập đóng cũng khớp với \texttt{FPGrowth\_itemsets} của SPMF tại 9 cấu hình, mỗi CSDL một
-mức minsup cao nhất, vì số frequent itemset bùng nổ khi minsup giảm (mushrooms 20\% đã có 53\,583 frequent itemset so
-với 1\,197 tập đóng). Bản thân SPMF cũng được kiểm tra trước khi dùng làm đáp án: trên cả 56 cấu hình, kết quả của
-SPMF giống từng itemset và support với cài đặt FPclose gốc của các tác giả trong kho FIMI~\cite{grahne2003}. Sau khi
-đổi sang bộ đọc theo byte và lưu thứ hạng trong nút cây, toàn bộ phép so (56 cấu hình closed và 9 cấu hình mọi
-frequent itemset) được chạy lại trên chính mã nguồn dùng để đo hiệu năng ở các mục sau và vẫn khớp 100\%, bộ kiểm thử
-tự động cũng đạt 28\,266/28\,266 ca.
+trên cả 56 cấu hình, với tổng cộng 848\,998 lượt kết quả được đối chiếu qua các cấu hình. Mọi \textit{frequent
+itemset} khôi phục từ tập đóng cũng được so trực tiếp với \texttt{FPGrowth\_itemsets} của SPMF ở mọi mức minsup có
+không quá 2 triệu frequent itemset: 52/56 cấu hình, tổng cộng 5\,481\,312 itemset, đều khớp 100\%. Bốn cấu hình còn
+lại (mushrooms 5\%, 3\%, 2\% và connect 70\%) vượt giới hạn này vì số frequent itemset bùng nổ khi minsup giảm
+(mushrooms 20\% đã có 53\,583 frequent itemset so với 1\,197 tập đóng). Bản thân SPMF cũng được kiểm tra trước khi
+dùng làm đáp án: trên cả 56 cấu hình, kết quả của SPMF giống từng itemset và support với cài đặt FPclose gốc của các
+tác giả trong kho FIMI~\cite{grahne2003}. Các phép so được chạy trên chính mã nguồn dùng để đo hiệu năng ở các mục
+sau (đã có bộ đọc theo byte và lưu thứ hạng trong nút cây), bộ kiểm thử tự động cũng đạt 28\,266/28\,266 ca.
+
+\textbf{Từ tập đóng đến mọi tập phổ biến.} Đề yêu cầu so số lượng frequent itemset và support của từng itemset. Kết
+quả closed khớp đã kéo theo điều này. Với mỗi tập phổ biến $X$, bao đóng của $X$ (giao của mọi giao dịch chứa $X$) là
+một tập đóng phổ biến chứa $X$ và có cùng support, còn mọi tập đóng khác chứa $X$ có support không lớn hơn, nên
+\begin{equation}
+\operatorname{supp}(X)=\max\{\operatorname{supp}(C) : C \supseteq X,\ C \text{ là tập đóng phổ biến}\}
+\end{equation}
+và $X$ phổ biến khi và chỉ khi có ít nhất một tập đóng phổ biến chứa nó~\cite{pasquier1999}. Do đó hai cài đặt có
+cùng các tập đóng với cùng support thì cũng có cùng các tập phổ biến với cùng support. Kết quả closed khớp ở 56/56 cấu
+hình vì vậy bảo đảm số frequent itemset và support của từng itemset cũng khớp ở cả 56 cấu hình, kể cả bốn cấu hình
+không so trực tiếp được. Phép so trực tiếp ở 52 cấu hình là kiểm chứng thực nghiệm cho lập luận này.
 
 \begin{table*}[!t]
-\caption{Tỉ lệ itemset khớp SPMF (closed: mọi cấu hình, mọi frequent itemset: minsup cao nhất)}
+\caption{Tỉ lệ itemset khớp SPMF theo từng CSDL (closed: mọi mức minsup, mọi frequent itemset: các mức có không quá
+2 triệu frequent itemset)}
 \label{tab:correctness}
 \centering
 \fittable{\textwidth}{correctness_table}
@@ -152,7 +164,8 @@ rã tương ứng của SPMF, nhóm chưa định lượng được mức đóng
 FPClose sinh các tập phổ biến \textbf{đóng}, và mọi tập phổ biến cùng support của chúng đều suy ra được từ tập đóng
 (Chương~\ref{sec:implementation}). Số tập phổ biến bùng nổ khi minsup giảm (mushrooms 20\% đã có 53\,583 frequent
 itemset so với 1\,197 tập đóng), nên kích thước đầu ra được đo bằng số closed frequent itemset. Số frequent itemset
-được đối chiếu với SPMF ở minsup cao nhất của mỗi CSDL (Mục~\ref{sec:correctness}). Hình~\ref{fig:itemsets} vẽ số
+của từng CSDL nằm ở Bảng~\ref{tab:correctness}, đã đối chiếu với SPMF ở 52/56 cấu hình
+(Mục~\ref{sec:correctness}). Hình~\ref{fig:itemsets} vẽ số
 closed frequent itemset theo minsup của cả chín CSDL (cả hai trục thang log, trục hoành là minsup thật nên mỗi CSDL
 nằm ở một khoảng riêng).
 
@@ -179,8 +192,7 @@ retail và T10I4D100K).
 
 Tám biến thể dùng cùng bộ đọc dữ liệu và cùng cách lưu thứ hạng item trong nút cây, chỉ khác nhau ở năm kỹ thuật tối
 ưu tùy chọn: cắt nhánh dòng 8 của mã giả FPClose, FP-array, kết thúc sớm, so count chính xác và CFI-tree rút gọn. Bản
-\textbf{basic} tắt cả năm kỹ thuật, bản \textbf{pruning-only} chỉ bật cắt nhánh (tên nội bộ và nhãn trong hình là
-\texttt{paper}), bản \textbf{optimized} bật cả năm, năm biến thể còn lại lần lượt tắt riêng một kỹ thuật của bản
+\textbf{basic} tắt cả năm kỹ thuật, bản \textbf{pruning-only} chỉ bật cắt nhánh, bản \textbf{optimized} bật cả năm, năm biến thể còn lại lần lượt tắt riêng một kỹ thuật của bản
 optimized (\textit{ablation}). FP-array là mảng đếm sẵn tần suất của từng cặp item khi dựng cây, nhờ đó khi dựng cây
 điều kiện không phải duyệt cây thêm một lần để đếm~\cite{grahne2005}. Mọi biến thể cho cùng một tập kết quả ở mọi lần
 chạy (cùng mã hash). Mọi số đo đặt tại minsup giữa lưới của mỗi CSDL và là trung vị của ba lần đo.

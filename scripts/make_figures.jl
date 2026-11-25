@@ -47,7 +47,7 @@ const DATASET_STYLE = Dict(
     "pumsb_star" => ("#008300", :utriangle), "accidents" => ("#6250d6", :dtriangle),
     "retail" => ("#1baf7a", :circle), "T10I4D100K" => ("#eda100", :rect), "T40I10D100K" => ("#e87ba4", :diamond),
     "kosarak" => ("#008300", :utriangle))
-# Tên biến thể trong bảng: basic, pruning-only (tên nội bộ và nhãn trong hình của main là "paper"), optimized
+# Tên biến thể hiển thị: basic, pruning-only (khóa "paper" trong CSV), optimized
 const VARIANT_SHORT = Dict("basic" => "basic", "paper" => "pruning-only", "optimized" => "optimized")
 const VARIANT = [("basic", "Cơ bản (tắt hết tối ưu)", "#1baf7a"),
                  ("paper", "Chỉ cắt nhánh (dòng 8)", "#eda100"),
@@ -230,33 +230,42 @@ value(rows, d, m, tool, col) =
 # Tỉ lệ khớp = itemset khớp (cùng itemset, cùng support) / itemset khác nhau của cả hai phía
 #            = n_match / (n_match + only_ours + only_spmf + n_diff_support), cộng dồn mọi cấu hình.
 
+"""
+Bảng correctness từ lần so mọi mức minsup (`run_benchmark_grid.jl --only correctness --fi-all-levels`): closed ở mọi
+cấu hình, mọi frequent itemset (FI) ở mọi mức có số FI không vượt `--fi-limit` (2 triệu). Mức bị bỏ qua (SKIPPED) đếm
+riêng, không tính vào tỉ lệ.
+"""
+const CORRECTNESS_CSV = joinpath(RESULTS, "correctness", "grid_correctness_fi_all_levels.csv")
+
 function correctness_table()
-    corr = read_csv_rows(joinpath(RESULTS, "correctness", "grid_correctness.csv"))
+    corr = read_csv_rows(CORRECTNESS_CSV)
     union_size(r) = int(r["n_match"]) + int(r["only_ours"]) + int(r["only_spmf"]) + int(r["n_diff_support"])
     rows = Vector{String}[]
-    tot_cfg, tot_match, tot_union = 0, 0, 0
+    tot = Dict(:cfg => 0, :m => 0, :u => 0, :fcfg => 0, :fm => 0, :fu => 0)
     for d in DATASETS
-        closed = filter(r -> r["dataset"] == d && r["mode"] == "closed", corr)
-        fi = filter(r -> r["dataset"] == d && r["mode"] == "all_fi", corr)
+        closed = filter(r -> r["dataset"] == d && r["mode"] == "closed" && r["status"] == "OK", corr)
+        fi_all = filter(r -> r["dataset"] == d && r["mode"] == "all_fi", corr)
+        fi = filter(r -> r["status"] == "OK", fi_all)
         m, u = sum(int(r["n_match"]) for r in closed), sum(union_size(r) for r in closed)
-        tot_cfg += length(closed); tot_match += m; tot_union += u
-        fi_cell = isempty(fi) ? "-" :
-            join((@sprintf("%s: %s/%s", pct(r["minsup_pct"]), thousands(int(r["n_match"])), thousands(union_size(r)))
-                  for r in fi), "; ")
-        fi_pct = isempty(fi) ? "-" : @sprintf("%.2f%%", 100 * sum(int(r["n_match"]) for r in fi) / sum(union_size(r) for r in fi))
+        fm, fu = sum(int(r["n_match"]) for r in fi; init = 0), sum(union_size(r) for r in fi; init = 0)
+        tot[:cfg] += length(closed); tot[:m] += m; tot[:u] += u
+        tot[:fcfg] += length(fi); tot[:fm] += fm; tot[:fu] += fu
         push!(rows, [d, string(length(closed)), "$(thousands(m))/$(thousands(u))", @sprintf("%.2f%%", 100 * m / u),
-                     fi_cell, fi_pct])
+                     "$(length(fi))/$(length(fi_all))", "$(thousands(fm))/$(thousands(fu))",
+                     @sprintf("%.2f%%", 100 * fm / fu)])
     end
-    push!(rows, ["Tổng", string(tot_cfg), "$(thousands(tot_match))/$(thousands(tot_union))",
-                 @sprintf("%.2f%%", 100 * tot_match / tot_union), "", ""])
+    push!(rows, ["Tổng", string(tot[:cfg]), "$(thousands(tot[:m]))/$(thousands(tot[:u]))",
+                 @sprintf("%.2f%%", 100 * tot[:m] / tot[:u]), "$(tot[:fcfg])/$(tot[:cfg])",
+                 "$(thousands(tot[:fm]))/$(thousands(tot[:fu]))", @sprintf("%.2f%%", 100 * tot[:fm] / tot[:fu])])
     save_table("correctness_table",
-               ["Dataset", "Số cấu
-hình", "Closed
+               ["Dataset", "Số mức
+minsup", "Closed
 khớp/tổng", "Tỉ lệ
-closed", "Mọi FI
-(minsup: khớp/tổng)", "Tỉ lệ
+closed", "Mức so
+mọi FI", "Mọi FI
+khớp/tổng", "Tỉ lệ
 mọi FI"],
-               rows; align = "lrrrlr")
+               rows; align = "lrrrrrr")
 end
 
 # ---------------------------------------------------------------------------

@@ -70,7 +70,7 @@ script.
 | Nhãn trên trục | `variant` trong CSV | Ý nghĩa |
 |---|---|---|
 | basic | `basic` | Tắt mọi tối ưu |
-| paper | `paper` | Chỉ giữ cắt nhánh dòng 8 như trong bài báo |
+| pruning-only | `paper` | Chỉ bật cắt nhánh dòng 8 (không phải toàn bộ các tối ưu của bài báo) |
 | optimized | `optimized` | Mặc định của `fpclose` (bật mọi tối ưu), dùng làm mốc so sánh |
 | −cắt dòng 8 | `opt_no_prune_line8` | optimized nhưng tắt cắt nhánh dòng 8 |
 | −FP-array | `opt_no_fparray` | optimized nhưng tắt FP-array |
@@ -78,7 +78,7 @@ script.
 | −đếm chính xác | `opt_no_exact_count` | optimized nhưng tắt đếm chính xác |
 | −CFI-tree rút gọn | `opt_no_reduced_cfitree` | optimized nhưng tắt CFI-tree rút gọn |
 
-Màu cột: optimized màu xanh (cùng màu của nhóm), các biến thể ablation màu xanh nhạt, basic/paper màu xám.
+Màu cột: optimized màu xanh (cùng màu của nhóm), các biến thể ablation màu xanh nhạt, basic/pruning-only màu xám.
 
 ## Bộ nhớ: đọc thế nào, và vì sao không so với SPMF
 

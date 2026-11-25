@@ -23,6 +23,14 @@ const TIME_NOTE = "Thời gian: trung vị các lần chạy OK (thường 3 l�
                   "Tỷ số = SPMF / ours (> 1 nghĩa là ours nhanh hơn)."
 
 "Ghi bảng ra <outdir>/<name>.csv (nếu có df) và <name>.md."
+
+"""
+Tên biến thể hiển thị trong bảng Markdown: khóa `paper` trong CSV hiện là `pruning-only` (chỉ bật cắt nhánh dòng 8),
+khớp nhãn trong hình (plot_results.jl) và báo cáo. CSV đầu ra vẫn giữ khóa gốc.
+"""
+variant_display(v) = v == "paper" ? "pruning-only" : v
+display_variants(t) = (s = copy(t); s.variant = variant_display.(s.variant); s)
+
 function write_outputs(outdir, name, df, md::AbstractString)
     df === nothing || CSV.write(joinpath(outdir, "$name.csv"), df)
     write(joinpath(outdir, "$name.md"), md)
@@ -249,11 +257,11 @@ function summarize_ablation(resdir, outdir)
           "0 nghĩa là mức tăng nhỏ hơn nền Julia (~285 MB), không phân biệt được. `alloc_mb` = tổng cấp phát do Julia đếm. ",
           "Trong ngoặc: chênh lệch so với `$REF_VARIANT` (dương = lớn hơn/chậm hơn).\n\n",
           "## Tổng theo biến thể (tỷ số so với $REF_VARIANT, trung bình nhân trên các dataset)\n\n",
-          md_table(ov, [:variant => "Biến thể", :n_datasets => "Số dataset", :time_ratio_geomean => "Thời gian / opt (TB nhân)",
+          md_table(display_variants(ov), [:variant => "Biến thể", :n_datasets => "Số dataset", :time_ratio_geomean => "Thời gian / opt (TB nhân)",
                         :time_ratio_min => "Nhỏ nhất", :time_ratio_max => "Lớn nhất", :alloc_ratio_geomean => "Alloc / opt (TB nhân)"]))
     for ds in dsets
         d = out[out.dataset .== ds, :]
-        tbl = DataFrame(variant = d.variant, n_closed = d.n_closed)
+        tbl = DataFrame(variant = variant_display.(d.variant), n_closed = d.n_closed)
         cols = Pair{Symbol,String}[:variant => "Biến thể", :n_closed => "Số tập đóng"]
         for (m, h) in ((:mine_s, "Khai thác (s)"), (:mem_delta_mb, "Bộ nhớ thực dùng (MB)"), (:alloc_mb, "Alloc (MB)"), [(c, String(c)) for c in show_counters]...)
             hasproperty(d, m) || continue

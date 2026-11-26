@@ -13,7 +13,14 @@ import numpy as np
 import pandas as pd
 from sklearn.cluster import MiniBatchKMeans
 
-from config import DATA_SIFT, DATA_SPLIT, DATA_WORDS, K_LIST, N_SAMPLE_DESC, OUT, SEED, codebook_path
+from config import (DATA_SIFT, DATA_SPLIT, DATA_WORDS, K_LIST, N_SAMPLE_DESC, OUT, SEED, codebook_path,
+                    mark_step_done, step_done)
+
+
+def spec():
+    outs = [DATA_WORDS, OUT / "codebook_stats.csv"] + [codebook_path(k) for k in K_LIST]
+    return outs, [DATA_SIFT, DATA_SPLIT], {"K_LIST": K_LIST, "N_SAMPLE_DESC": N_SAMPLE_DESC, "SEED": SEED,
+                                          "kmeans": "MiniBatchKMeans(n_init=3, batch_size=4096)"}
 
 
 def sample_even_per_image(offsets, train_mask, total, rng):
@@ -40,8 +47,8 @@ def sample_even_per_image(offsets, train_mask, total, rng):
 
 
 def main(force: bool = False):
-    if DATA_WORDS.exists() and not force:
-        print("Đã có", DATA_WORDS, "- bỏ qua (dùng --force để chạy lại)")
+    outs, ins, params = spec()
+    if not force and step_done("s04", outs, ins, params):
         return
     split = pd.read_csv(DATA_SPLIT)
     z = np.load(DATA_SIFT)
@@ -70,6 +77,7 @@ def main(force: bool = False):
     OUT.mkdir(exist_ok=True)
     pd.DataFrame(rows).to_csv(OUT / "codebook_stats.csv", index=False)
     print("Đã ghi", DATA_WORDS)
+    mark_step_done("s04", ins, params)
 
 
 if __name__ == "__main__":

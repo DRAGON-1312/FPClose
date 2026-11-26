@@ -24,9 +24,22 @@ from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score, confusion_ma
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from config import CLASSES, DATA_PATTERNS, DATA_SIFT, DATA_SPLIT, DATA_TX, DATA_WORDS, K_LIST, OUT, SEED, TOP_N_CLF
+from config import (CLASSES, DATA_PATTERNS, DATA_SIFT, DATA_SPLIT, DATA_TX, DATA_WORDS, K_LIST, OUT, SEED, TOP_N_CLF,
+                    mark_step_done, step_done)
 
 VARIANT = "word"
+
+
+def spec():
+    outs = [OUT / f for f in ("classification.csv", "classification_per_class.csv", "confusion_matrices.png")]
+    ins = [DATA_SPLIT, DATA_SIFT, DATA_WORDS]
+    for k in K_LIST:
+        d = DATA_TX / f"k{k}_{VARIANT}"
+        ins += [DATA_PATTERNS / f"k{k}_{VARIANT}_top.csv", d / "all_train.txt", d / "test.txt",
+                d / "transactions_index.csv"]
+    params = {"K_LIST": K_LIST, "TOP_N_CLF": TOP_N_CLF, "SEED": SEED,
+              "model": "StandardScaler + LogisticRegression(max_iter=5000)"}
+    return outs, ins, params
 
 
 def bovw(k, offsets, w):
@@ -57,8 +70,8 @@ def pattern_features(k, tx):
 
 
 def main(force: bool = False):
-    if (OUT / "classification.csv").exists() and not force:
-        print("Đã có out/classification.csv - bỏ qua (dùng --force để chạy lại)")
+    outs, ins, params = spec()
+    if not force and step_done("s08", outs, ins, params):
         return
     split = pd.read_csv(DATA_SPLIT)
     offsets = np.load(DATA_SIFT)["offsets"]
@@ -93,6 +106,7 @@ def main(force: bool = False):
     fig.savefig(OUT / "confusion_matrices.png", dpi=100)
     print(res.to_string(index=False))
     print(pd.DataFrame(per_class).to_string(index=False))
+    mark_step_done("s08", ins, params)
 
 
 if __name__ == "__main__":

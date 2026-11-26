@@ -14,12 +14,19 @@ import cv2
 import numpy as np
 import pandas as pd
 
-from config import CLASSES, DATA_IMG, DATA_SPLIT, DATA_SIFT, OUT, SIFT_NFEATURES
+from config import (CLASSES, DATA_IMG, DATA_SPLIT, DATA_SIFT, MAX_SIDE, OUT, SIFT_NFEATURES, mark_step_done,
+                    step_done)
+
+
+def spec():
+    """(output, đầu vào, tham số) của bước: dùng để quyết định có bỏ qua được không."""
+    return ([DATA_SIFT, OUT / "sift_stats.csv"], [DATA_SPLIT],
+            {"SIFT_NFEATURES": SIFT_NFEATURES, "MAX_SIDE": MAX_SIDE})
 
 
 def main(force: bool = False):
-    if DATA_SIFT.exists() and not force:
-        print("Đã có", DATA_SIFT, "- bỏ qua (dùng --force để chạy lại)")
+    outs, ins, params = spec()
+    if not force and step_done("s03", outs, ins, params):
         return
     OUT.mkdir(exist_ok=True)
     split = pd.read_csv(DATA_SPLIT)
@@ -50,6 +57,7 @@ def main(force: bool = False):
     print(stats.groupby(["label", "split"]).n_kp.agg(["count", "mean", "min", "max"]).round(1)
           .reindex(CLASSES, level=0))
     print("Đã ghi", DATA_SIFT, f"({DATA_SIFT.stat().st_size / 1e6:.1f} MB)")
+    mark_step_done("s03", ins, params)
 
 
 if __name__ == "__main__":

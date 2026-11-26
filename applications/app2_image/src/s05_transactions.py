@@ -42,9 +42,23 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 
 from config import (CLASSES, CV_FOLDS, CV_TOL, DATA_IMG, DATA_SIFT, DATA_SPLIT, DATA_TX, DATA_WORDS, GRID,
-                    K_LIST, OUT, SEED, SENS_VARIANTS, STOP_DF, STOP_GRID, TAU, TAU_GRID, WRITE_VARIANTS)
+                    K_LIST, OUT, SEED, SENS_VARIANTS, STOP_DF, STOP_GRID, TAU, TAU_GRID, WRITE_VARIANTS,
+                    mark_step_done, step_done)
 
 N_REGION = GRID * GRID
+
+
+def spec():
+    outs = [OUT / f for f in ("transaction_stats.csv", "tau_sensitivity.csv", "tau_recommendation.csv")]
+    for k in K_LIST:
+        for v in WRITE_VARIANTS:
+            d = DATA_TX / f"k{k}_{v}"
+            outs += [d / f for f in ("all_train.txt", "test.txt", "transactions_index.csv", "items.csv")]
+            outs += [d / f"class_{c}.txt" for c in CLASSES]
+    params = {"K_LIST": K_LIST, "TAU": TAU, "STOP_DF": STOP_DF, "GRID": GRID, "TAU_GRID": TAU_GRID,
+              "STOP_GRID": STOP_GRID, "CV_FOLDS": CV_FOLDS, "CV_TOL": CV_TOL, "SEED": SEED,
+              "WRITE_VARIANTS": WRITE_VARIANTS, "SENS_VARIANTS": SENS_VARIANTS}
+    return outs, [DATA_SPLIT, DATA_SIFT, DATA_WORDS], params
 
 
 def load_inputs():
@@ -161,8 +175,8 @@ def recommend(sens):
 
 
 def main(force: bool = False):
-    if (OUT / "transaction_stats.csv").exists() and not force:
-        print("Đã có out/transaction_stats.csv - bỏ qua (dùng --force để chạy lại)")
+    outs, ins, params = spec()
+    if not force and step_done("s05", outs, ins, params):
         return
     OUT.mkdir(exist_ok=True)
     split, words, img_of_kp, region = load_inputs()
@@ -184,6 +198,7 @@ def main(force: bool = False):
     rec.to_csv(OUT / "tau_recommendation.csv", index=False)
     print(stats.to_string(index=False))
     print(rec.to_string(index=False))
+    mark_step_done("s05", ins, params)
 
 
 if __name__ == "__main__":

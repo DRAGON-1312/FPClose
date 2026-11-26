@@ -37,6 +37,7 @@ bằng bitset Python, và kiểm tra tính đóng (thêm bất kỳ item nào c�
 CLOSED_CHECK_SAMPLE tập mỗi lớp. Không kiểm tra được tính đầy đủ (cần khai thác lại).
 """
 import random
+import hashlib
 import re
 import subprocess
 import sys
@@ -46,10 +47,34 @@ from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
 
 from config import (CLASSES, CLOSED_CHECK_SAMPLE, DATA_PATTERNS, DATA_TX, FPCLOSE_DEMO, JULIA, K_LIST,
-                    MIN_PATTERN_LEN, MIN_PATTERNS, MINE_TIMEOUT, MINSUP_GRID, N_JOBS, OUT, REPO, SEED)
+                    MIN_PATTERN_LEN, MIN_PATTERNS, MINE_TIMEOUT, MINSUP_GRID, N_JOBS, OUT, REPO, SEED, file_sig,
+                    mark_step_done, step_done)
 
 VARIANT = "word"
 KV = re.compile(r"(\w+)\s*=\s*([0-9.]+)")
+CACHE_KEY = re.compile(r"^cache_key = (\S+)$", re.M)
+
+
+def code_files():
+    """Code FPClose được gọi: demo.jl + src/**/*.jl. Đổi code thì cache phải hết hiệu lực."""
+    return [FPCLOSE_DEMO] + sorted((REPO / "src").rglob("*.jl"))
+
+
+def code_signature(julia_version):
+    h = hashlib.sha1(julia_version.encode())
+    for f in code_files():
+        h.update(file_sig(f).encode())
+    return h.hexdigest()
+
+
+def spec(julia_version):
+    outs = [OUT / f for f in ("mining_sweep.csv", "minsup_choice.csv", "fpclose_check.csv")]
+    outs += [DATA_PATTERNS / f"k{k}_{VARIANT}_closed.csv" for k in K_LIST]
+    ins = [DATA_TX / f"k{k}_{VARIANT}" / f"class_{c}.txt" for k in K_LIST for c in CLASSES] + code_files()
+    params = {"K_LIST": K_LIST, "MINSUP_GRID": {str(k): v for k, v in MINSUP_GRID.items()},
+              "MIN_PATTERNS": MIN_PATTERNS, "MIN_PATTERN_LEN": MIN_PATTERN_LEN, "MINE_TIMEOUT": MINE_TIMEOUT,
+              "CLOSED_CHECK_SAMPLE": CLOSED_CHECK_SAMPLE, "SEED": SEED, "julia": julia_version}
+    return outs, ins, params
 
 
 def read_patterns(path):
@@ -66,10 +91,16 @@ def read_transactions(path):
     return [list(map(int, l.split())) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
 
 
-def run_fpclose(in_path, minsup, out_path, force):
-    """Một lần gọi demo.jl. Trả dict số liệu (từ stderr của demo.jl + thời gian); dùng lại kết quả đã có."""
+def run_fpclose(in_path, minsup, out_path, force, code_sig):
+    """Một lần gọi demo.jl. Trả dict số liệu (từ stderr của demo.jl + thời gian).
+
+    Dùng lại kết quả đã có CHỈ KHI cache_key (hash file giao dịch + hash code FPClose + phiên bản Julia) khớp:
+    đổi tau, codebook, chia tập... (file giao dịch đổi) hoặc đổi code FPClose thì tự chạy lại."""
     err_path = out_path.with_suffix(".err")
-    if force or not (out_path.exists() and err_path.exists()):
+    key = f"{file_sig(in_path)}-{code_sig}"
+    cached = (out_path.exists() and err_path.exists()
+              and CACHE_KEY.findall(err_path.read_text(encoding="utf-8")) == [key])
+    if force or not cached:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         t0 = time.perf_counter()
         try:
@@ -81,7 +112,8 @@ def run_fpclose(in_path, minsup, out_path, force):
             return {"status": "timeout", "wall_seconds": float(MINE_TIMEOUT)}
         if r.returncode != 0:
             raise RuntimeError(f"demo.jl lỗi ({r.returncode}) trên {in_path}:\n{r.stderr}")
-        err_path.write_text(r.stderr + f"\nwall_seconds = {time.perf_counter() - t0:.3f}\n", encoding="utf-8")
+        err_path.write_text(r.stderr + f"\nwall_seconds = {time.perf_counter() - t0:.3f}\ncache_key = {key}\n",
+                            encoding="utf-8")
         status = "ran"
     else:
         status = "cached"
@@ -94,14 +126,14 @@ def run_fpclose(in_path, minsup, out_path, force):
             "mining_seconds": info.get("mining_seconds"), "wall_seconds": info.get("wall_seconds")}
 
 
-def sweep(k, force):
+def sweep(k, force, code_sig):
     """Quét minsup giảm dần cho một k; dừng khi mọi lớp có >= MIN_PATTERNS tập dài >= 2. Trả (rows, choice)."""
     rows, last_ok = [], None
     tx_dir, pat_dir = DATA_TX / f"k{k}_{VARIANT}", DATA_PATTERNS / f"k{k}_{VARIANT}"
     for m in MINSUP_GRID[k]:
         jobs = [(tx_dir / f"class_{c}.txt", m, pat_dir / f"ms{m:02d}" / f"class_{c}.txt") for c in CLASSES]
         with ThreadPoolExecutor(N_JOBS) as ex:
-            res = list(ex.map(lambda j: run_fpclose(*j, force), jobs))
+            res = list(ex.map(lambda j: run_fpclose(*j, force, code_sig), jobs))
         for c, r in zip(CLASSES, res):
             rows.append({"k": k, "class": c, "minsup_pct": m, **r})
             print(rows[-1], flush=True)
@@ -163,36 +195,39 @@ def verify(k, m):
 
 
 def main(force: bool = False):
-    if (OUT / "minsup_choice.csv").exists() and not force:
-        print("Đã có out/minsup_choice.csv - bỏ qua (dùng --force để chạy lại)")
-        return
     jv = subprocess.run([JULIA, "--version"], capture_output=True, text=True).stdout.strip()
+    outs, ins, params = spec(jv)
+    if not force and step_done("s06", outs, ins, params):
+        return
+    code_sig = code_signature(jv)
     print(f"FPClose của nhóm: {FPCLOSE_DEMO} | {jv} | {N_JOBS} lần gọi song song", flush=True)
     OUT.mkdir(exist_ok=True)
-    rows, choices, checks = [], [], []
+    rows, choices, checks, tables = [], [], [], {}
     for k in K_LIST:
-        r, ch = sweep(k, force)
+        r, ch = sweep(k, force, code_sig)
         rows += r
         choices.append(ch)
         print(ch, flush=True)
-        chk, table = verify(k, ch["minsup_pct"])
+        chk, tables[k] = verify(k, ch["minsup_pct"])
         checks += chk
-        table.to_csv(DATA_PATTERNS / f"k{k}_{VARIANT}_closed.csv", index=False)
-    sweep_df = pd.DataFrame(rows)
-    sweep_df.to_csv(OUT / "mining_sweep.csv", index=False)
-    pd.DataFrame(choices).to_csv(OUT / "minsup_choice.csv", index=False)
-    chk = pd.DataFrame(checks)
+    sweep_df, chk = pd.DataFrame(rows), pd.DataFrame(checks)
+    sweep_df.to_csv(OUT / "mining_sweep.csv", index=False)       # bảng chẩn đoán: ghi cả khi kiểm tra thất bại
     chk.to_csv(OUT / "fpclose_check.csv", index=False)
     for k in K_LIST:
         print(f"\nk={k}: số tập đóng dài >= {MIN_PATTERN_LEN} (hàng: minsup %, cột: lớp)")
         print(sweep_df[sweep_df.k == k].pivot(index="minsup_pct", columns="class", values="n_len2")
               .sort_index(ascending=False)[CLASSES].to_string())
     print(pd.DataFrame(choices).to_string(index=False))
+    # Kiểm tra TRƯỚC khi ghi kết quả mà bước sau dùng (minsup_choice, bảng mẫu) và trước khi đánh dấu hoàn tất
     assert chk.support_all_ok.all() and chk.closed_ok.all(), "kiểm tra độc lập thất bại, xem out/fpclose_check.csv"
     print("Kiểm tra độc lập: support và tính đóng đều đúng")
     diff = chk[chk.minsup_count_python != chk.minsup_count_fpclose]
     if len(diff):                                           # chỉ báo, không dừng: khác cách làm tròn ngưỡng
         print("LƯU Ý: ngưỡng support của FPClose khác ceil(minsup * n) tính bằng số nguyên:\n", diff.to_string())
+    pd.DataFrame(choices).to_csv(OUT / "minsup_choice.csv", index=False)
+    for k, table in tables.items():
+        table.to_csv(DATA_PATTERNS / f"k{k}_{VARIANT}_closed.csv", index=False)
+    mark_step_done("s06", ins, params)
 
 
 if __name__ == "__main__":

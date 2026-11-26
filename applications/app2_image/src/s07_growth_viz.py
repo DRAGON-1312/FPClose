@@ -39,10 +39,23 @@ import scipy.io as sio
 from matplotlib.path import Path as MplPath
 
 from config import (ANN_DIR, ANN_DIRS, CLASSES, DATA_IMG, DATA_PATTERNS, DATA_RAW, DATA_SIFT, DATA_SPLIT, DATA_TX,
-                    DATA_WORDS, K_LIST, MIN_PATTERN_LEN, N_FIG_IMAGES, OUT, SEED, TOP_KEEP, TOP_TABLE)
+                    DATA_WORDS, K_LIST, MIN_PATTERN_LEN, N_FIG_IMAGES, OUT, SEED, TOP_KEEP, TOP_TABLE,
+                    mark_step_done, step_done)
 from s01_prepare_data import safe_extract_tar
 
 VARIANT = "word"
+
+
+def spec():
+    outs = [OUT / "growth_summary.csv"]
+    ins = [DATA_SPLIT, DATA_SIFT, DATA_WORDS]
+    for k in K_LIST:
+        outs += [OUT / f"growth_top_k{k}.csv", OUT / f"patterns_k{k}.png", DATA_PATTERNS / f"k{k}_{VARIANT}_top.csv"]
+        d = DATA_TX / f"k{k}_{VARIANT}"
+        ins += [DATA_PATTERNS / f"k{k}_{VARIANT}_closed.csv", d / "all_train.txt", d / "transactions_index.csv"]
+    params = {"K_LIST": K_LIST, "MIN_PATTERN_LEN": MIN_PATTERN_LEN, "TOP_TABLE": TOP_TABLE, "TOP_KEEP": TOP_KEEP,
+              "N_FIG_IMAGES": N_FIG_IMAGES, "ANN_DIRS": ANN_DIRS, "SEED": SEED}
+    return outs, ins, params
 
 
 def ensure_annotations():
@@ -176,8 +189,8 @@ def draw(k, tops, bits, masks, full, tr_rows, split, z, words, contours):
 
 
 def main(force: bool = False):
-    if (OUT / "growth_summary.csv").exists() and not force:
-        print("Đã có out/growth_summary.csv - bỏ qua (dùng --force để chạy lại)")
+    outs, ins, params = spec()
+    if not force and step_done("s07", outs, ins, params):
         return
     ensure_annotations()
     split = pd.read_csv(DATA_SPLIT)
@@ -207,6 +220,7 @@ def main(force: bool = False):
         print("Đã ghi", OUT / f"patterns_k{k}.png", flush=True)
     pd.DataFrame(summary).to_csv(OUT / "growth_summary.csv", index=False)
     print(pd.DataFrame(summary).to_string(index=False))
+    mark_step_done("s07", ins, params)
 
 
 if __name__ == "__main__":

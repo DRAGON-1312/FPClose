@@ -67,3 +67,46 @@ TOP_N_CLF = 20             # bước 7: số mẫu mỗi lớp làm đặc trưn
 # Faces_easy -> Faces_3 (không phải Faces_2): hộp của Faces_2 vượt khung ảnh Faces_easy ở 40/40 ảnh thử,
 # Faces_3 thì 0/40. annotation_XXXX.mat <-> image_XXXX.jpg; box_coord = [y1 y2 x1 x2],
 # obj_contour (2, N) = (x, y) tính từ góc (x1, y1) của hộp, theo tọa độ ảnh GỐC.
+
+
+# --- Bỏ qua bước đã chạy: chỉ khi đủ output VÀ tham số + đầu vào không đổi ---
+import hashlib
+import json
+
+STEP_DIR = OUT / "_steps"   # out/_steps/<bước>.json, ghi SAU CÙNG khi bước chạy xong và mọi kiểm tra đã qua
+
+
+def file_sig(path) -> str:
+    """SHA-1 nội dung file (đọc từng khối 1 MB)."""
+    h = hashlib.sha1()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _step_record(inputs, params) -> dict:
+    rec = {"params": params, "inputs": {Path(os.path.relpath(p, REPO)).as_posix(): file_sig(p) for p in inputs}}
+    return json.loads(json.dumps(rec, sort_keys=True, default=str))   # chuẩn hóa (tuple -> list, khóa -> str)
+
+
+def step_done(name: str, outputs, inputs, params) -> bool:
+    """True nếu bước `name` đã chạy xong với đúng tham số và đầu vào này, và còn đủ mọi output."""
+    f = STEP_DIR / f"{name}.json"
+    if not f.exists():
+        return False
+    missing = [Path(o).name for o in outputs if not Path(o).exists()]
+    if missing:
+        print(f"{name}: thiếu output {missing[:3]} -> chạy lại")
+        return False
+    if json.loads(f.read_text(encoding="utf-8")) != _step_record(inputs, params):
+        print(f"{name}: tham số hoặc dữ liệu đầu vào đã đổi so với lần chạy trước -> chạy lại")
+        return False
+    print(f"{name}: đã chạy với đúng tham số và đầu vào này, đủ output -> bỏ qua (dùng --force để chạy lại)")
+    return True
+
+
+def mark_step_done(name: str, inputs, params) -> None:
+    STEP_DIR.mkdir(parents=True, exist_ok=True)
+    (STEP_DIR / f"{name}.json").write_text(json.dumps(_step_record(inputs, params), indent=1, sort_keys=True),
+                                          encoding="utf-8")

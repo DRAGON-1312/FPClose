@@ -51,3 +51,12 @@ spmf_out*.txt
 # Ứng dụng Chương 3: dữ liệu và output thô sinh lại được từ notebook
 applications/*/data/
 applications/*/out/
+
+# File tạm khi biên dịch LaTeX (báo cáo)
+docs/**/*.aux
+docs/**/*.log
+docs/**/*.fls
+docs/**/*.fdb_latexmk
+docs/**/*.out
+docs/**/*.xdv
+docs/**/report.synctex.gz

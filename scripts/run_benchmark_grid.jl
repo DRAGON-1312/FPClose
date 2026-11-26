@@ -17,6 +17,7 @@
 #   --suffix S       hậu tố tên file kết quả (--quick ngầm đặt _quick)
 #   --machine NAME   nhãn máy ghi vào cột machine (mặc định: tên máy; hoặc biến môi trường FPCLOSE_MACHINE)
 #   --fi-limit N     giới hạn số frequent itemset khi so mọi FI (mặc định 2000000)
+#   --fi-all-levels  so mọi FI ở mọi mức minsup của lưới (mặc định chỉ mức cao nhất); dừng ở mức đầu tiên vượt --fi-limit
 #   --txlen-minsups  các mức minsup (%) cho txlen, ví dụ 2,1; --scal-minsups cho scalability (mặc định 0.1,0.05)
 #   --no-skip-after-timeout   chạy cả các minsup thấp hơn sau khi một công cụ đã TIMEOUT
 #   --jar PATH, --java-heap 4g   spmf.jar và heap của JVM (-Xmx, mặc định 4g như lần chạy thử lưới)
@@ -179,6 +180,7 @@ struct Ctx
     suffix::String
     machine::String
     fi_limit::Int
+    fi_all_levels::Bool
     txlen_minsups::Vector{Float64}
     scal_minsups::Vector{Float64}
     skip_after_timeout::Bool
@@ -639,18 +641,32 @@ function part_correctness!(ctx::Ctx, cfgs::Vector{Cfg})
         rm(oo; force = true)
         rm(so; force = true)
     end
-    # so mọi frequent itemset ở minsup cao nhất của mỗi dataset (giới hạn số FI; không khả thi thì SKIPPED kèm lý do)
+    # So mọi frequent itemset (khôi phục từ tập đóng, so với FPGrowth_itemsets của SPMF). Mặc định chỉ ở minsup cao
+    # nhất của mỗi dataset; với --fi-all-levels thì ở mọi mức minsup của lưới, đi từ cao xuống thấp. Số FI chỉ tăng khi
+    # minsup giảm, nên khi một mức vượt --fi-limit (SKIPPED) thì các mức thấp hơn của dataset đó cũng ghi SKIPPED mà
+    # không chạy. SPMF chỉ chạy khi phía nhóm OK (tránh để SPMF ghi file khổng lồ).
     for d in unique(c.dataset for c in cfgs)
-        cfg = first(c for c in cfgs if c.dataset == d)         # lưới sắp từ minsup cao xuống thấp
-        corr_key(cfg, "all_fi") in done && continue
-        logmsg("correctness (mọi FI) ", cfg.dataset, " ", format_pct(cfg.pct), "%")
-        oo = joinpath(GRID_OUT_DIR, tag_of(cfg) * "__ours_all.txt")
-        so = joinpath(GRID_OUT_DIR, tag_of(cfg) * "__spmf_all.txt")
-        mo = run_ours(ctx, cfg; out = oo, mode = "all")
-        ms = mo.status == "OK" ? run_spmf(ctx, cfg; out = so, mode = "all") : blank("SKIPPED")
-        ok &= record_correctness(ctx, cfg, "all_fi", mo, ms, oo, so)
-        rm(oo; force = true)
-        rm(so; force = true)
+        levels = [c for c in cfgs if c.dataset == d]           # lưới sắp từ minsup cao xuống thấp
+        ctx.fi_all_levels || (levels = levels[1:1])
+        over_limit = false
+        for cfg in levels
+            corr_key(cfg, "all_fi") in done && continue
+            if over_limit
+                ok &= record_correctness(ctx, cfg, "all_fi",
+                                         blank("SKIPPED"; note = "số FI vượt giới hạn $(ctx.fi_limit) ở minsup cao hơn"),
+                                         blank("SKIPPED"), "", "")
+                continue
+            end
+            logmsg("correctness (mọi FI) ", cfg.dataset, " ", format_pct(cfg.pct), "%")
+            oo = joinpath(GRID_OUT_DIR, tag_of(cfg) * "__ours_all.txt")
+            so = joinpath(GRID_OUT_DIR, tag_of(cfg) * "__spmf_all.txt")
+            mo = run_ours(ctx, cfg; out = oo, mode = "all")
+            ms = mo.status == "OK" ? run_spmf(ctx, cfg; out = so, mode = "all") : blank("SKIPPED")
+            ok &= record_correctness(ctx, cfg, "all_fi", mo, ms, oo, so)
+            mo.status == "SKIPPED" && (over_limit = true)
+            rm(oo; force = true)
+            rm(so; force = true)
+        end
     end
     return ok
 end
@@ -786,14 +802,14 @@ function write_environment(ctx::Ctx)
     return path
 end
 
-const USAGE = "cách dùng: julia --project=. scripts/run_benchmark_grid.jl [--only a,b] [--datasets a,b] [--runs N] [--timeout S] [--quick] [--suffix S] [--machine NAME]"
+const USAGE = "cách dùng: julia --project=. scripts/run_benchmark_grid.jl [--only a,b] [--datasets a,b] [--runs N] [--timeout S] [--quick] [--suffix S] [--machine NAME] [--fi-limit N] [--fi-all-levels]"
 
 function parse_args(args)
     o = Dict{String,Any}("only" => nothing, "datasets" => nothing, "runs" => nothing, "timeout" => 600, "quick" => false,
                          "suffix" => nothing, "machine" => get(ENV, "FPCLOSE_MACHINE", gethostname()), "fi-limit" => 2_000_000,
                          "txlen-minsups" => nothing, "scal-minsups" => "0.1,0.05", "skip" => true,
-                         "jar" => joinpath(TOOLS_DIR, "spmf.jar"), "java-heap" => "4g")
-    flags = ("--quick", "--no-skip-after-timeout")
+                         "jar" => joinpath(TOOLS_DIR, "spmf.jar"), "java-heap" => "4g", "fi-all-levels" => false)
+    flags = ("--quick", "--no-skip-after-timeout", "--fi-all-levels")
     valued = ("--only", "--datasets", "--runs", "--timeout", "--suffix", "--machine", "--fi-limit", "--txlen-minsups",
               "--scal-minsups", "--jar", "--java-heap")
     i = 1
@@ -803,6 +819,8 @@ function parse_args(args)
             o["quick"] = true
         elseif a == "--no-skip-after-timeout"
             o["skip"] = false
+        elseif a == "--fi-all-levels"
+            o["fi-all-levels"] = true
         elseif a in valued
             i < length(args) || error("thiếu giá trị sau $a")
             o[a[3:end]] = args[i+1]
@@ -826,7 +844,7 @@ function parse_args(args)
     quick && o["scal-minsups"] == "0.1,0.05" && (sc = [0.1])
     return Ctx(parts, o["datasets"] === nothing ? nothing : csvlist(o["datasets"]), runs, posint("timeout", o["timeout"]),
                quick, o["suffix"] === nothing ? (quick ? "_quick" : "") : o["suffix"], o["machine"], posint("fi-limit", o["fi-limit"]),
-               tl, sc, o["skip"], o["jar"], find_java(), o["java-heap"])
+               o["fi-all-levels"], tl, sc, o["skip"], o["jar"], find_java(), o["java-heap"])
 end
 
 # Mức minsup (%) mặc định cho txlen (chọn bằng `--only txlen_pilot`, lý do ở results/txlen/README.md)

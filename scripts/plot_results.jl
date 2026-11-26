@@ -37,10 +37,14 @@ const DATASET_MARKERS = [:circle, :rect, :utriangle, :diamond, :dtriangle, :pent
 const VARIANT_SHORT = Dict("prune_line8" => "cắt dòng 8", "fparray" => "FP-array", "early_termination" => "dừng sớm",
                            "exact_count" => "đếm chính xác", "reduced_cfitree" => "CFI-tree rút gọn")
 
-"Nhãn trục cho biến thể: opt_no_X → \"−X\" (tắt tối ưu X), còn lại giữ tên."
-variant_label(v::AbstractString) = startswith(v, "opt_no_") ? "−" * get(VARIANT_SHORT, v[8:end], v[8:end]) : String(v)
+"""
+Nhãn trục cho biến thể: opt_no_X → "−X" (tắt tối ưu X); biến thể `paper` (tên trong CSV) hiện là "pruning-only" vì
+nó chỉ bật cắt nhánh dòng 8, không phải toàn bộ bài báo gốc; còn lại giữ tên.
+"""
+variant_label(v::AbstractString) = startswith(v, "opt_no_") ? "−" * get(VARIANT_SHORT, v[8:end], v[8:end]) :
+                                   v == "paper" ? "pruning-only" : String(v)
 
-"Màu cột của biến thể: optimized = màu của nhóm, ablation (opt_no_*) = xanh nhạt, basic/paper = xám."
+"Màu cột của biến thể: optimized = màu của nhóm, ablation (opt_no_*) = xanh nhạt, basic/pruning-only (paper) = xám."
 variant_color(v::AbstractString) = v == REF_VARIANT ? STYLE[OURS].color :
                                    startswith(v, "opt_no_") ? :lightskyblue : :gray70
 

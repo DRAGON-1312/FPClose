@@ -98,7 +98,7 @@ kosarak & thưa & 0,4 & 212 & 1\,087\,185 & 28,14 \\
 \includegraphics[width=0.82\textwidth]{memory_variants_grid.pdf}
 \caption{RAM tối đa tăng thêm so với mức đo ngay sau warm-up (\textit{incremental peak RSS}) của tám biến thể tại
 minsup giữa lưới, trung vị 3 lần đo. Đây không phải bộ nhớ riêng của thuật toán (xem Mục~\ref{sec:memory}). Biến thể
-``$-$X'' là bản optimized tắt riêng tối ưu X, nhãn \texttt{paper} là bản pruning-only.}
+``$-$X'' là bản optimized tắt riêng tối ưu X.}
 \label{fig:memory-grid}
 \end{figure*}
 
@@ -118,8 +118,11 @@ mức 1. Thời gian khai thác của từng biến thể trên từng CSDL đư
 \fittable{\columnwidth}{txlen_table}
 \end{table}
 
-% Đẩy hết bảng còn chờ của Phụ lục A (kể cả bảng rộng hai cột) ra trước khi sang Phụ lục B
-\clearpage
+% Phụ lục B sang trang mới (\newpage, không dùng \clearpage: \clearpage làm cột trái trang đầu Phụ lục B bị ngắt sớm)
+\newpage
+% Phụ lục B, C chỉ có chữ: không kéo giãn khoảng cách giữa các đoạn để cột chạm đáy trang (IEEEtran mặc định
+% \flushbottom làm cột trái có khoảng trắng lớn giữa các đoạn)
+\raggedbottom
 \section{Dữ liệu và phương pháp đo}
 \label{app:data}
 
@@ -134,12 +137,7 @@ toàn support của các itemset.
 hai bản mã hóa item khác nhau, nhóm thống nhất dùng bản FIMI cho toàn bộ thực nghiệm.
 
 \textbf{Độ biến thiên.} Mức biến thiên giữa 3 lần đo của mỗi cấu hình được tính bằng khoảng biến thiên tương đối
-(\textit{relative range})
-\begin{equation}
-V=\frac{T_{\max}-T_{\min}}{T_{\min}}\times 100\%.
-\label{eq:relrange}
-\end{equation}
-Trên 56 cấu hình minsup, trung vị của $V$ là 5{,}2\% với nhóm và 4{,}5\% với SPMF, tỉ lệ cấu hình có $V \le 20\%$ là
+(\textit{relative range}) $V=(T_{\max}-T_{\min})/T_{\min}\times 100\%$. Trên 56 cấu hình minsup, trung vị của $V$ là 5{,}2\% với nhóm và 4{,}5\% với SPMF, tỉ lệ cấu hình có $V \le 20\%$ là
 95\% (53/56) với nhóm và 93\% (52/56) với SPMF. Trên thực nghiệm ablation (72 tổ hợp CSDL và biến thể), trung vị của
 $V$ đối với thời gian khai thác là 4{,}8\%. Chỉ ở một cấu hình (T40I10D100K 5\%), khoảng giá trị của 3 lần đo hai
 phía chồng lên nhau.
@@ -180,8 +178,10 @@ Mã nguồn ở \url{https://github.com/DRAGON-1312/FPClose}, dữ liệu ở
         và offset của từng CSDL đã chuẩn hóa (kèm bản mushrooms của SPMF), ghi ra
         \path{results/dataset_validation.csv}.
   \item \path{scripts/reference_check.jl}: kiểm tra SPMF với FPclose gốc của kho FIMI.
-  \item Phép so tính đúng đắn chạy lại trên mã nguồn dùng để đo hiệu năng (mã nguồn thuật toán trùng commit ghi trong
-        \path{results/ENVIRONMENT.md}) nằm ở \path{results/correctness/grid_correctness_hyt_v2.csv}.
+  \item Phép so tính đúng đắn của Bảng~\ref{tab:correctness} (closed ở mọi mức minsup, mọi frequent itemset ở các mức
+        không quá 2 triệu itemset) chạy trên mã nguồn dùng để đo hiệu năng bằng lệnh \texttt{run\_benchmark\_grid.jl
+        --only correctness --fi-all-levels}, kết quả ở
+        \path{results/correctness/grid_correctness_fi_all_levels.csv}.
   \item \path{scripts/run_benchmark_grid.jl}: chạy các thực nghiệm correctness, runtime, memory, scalability và
         txlen (lưới minsup ở \path{data/meta/benchmark_config.csv}), mỗi cấu hình 3 lần.
   \item \path{scripts/benchmark.jl}: đo bộ nhớ và thời gian khi bật, tắt từng tối ưu.

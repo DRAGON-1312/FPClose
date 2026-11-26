@@ -1,4 +1,6 @@
 """Tham số dùng chung cho Ứng dụng 2. Mọi bước ngẫu nhiên đều dùng SEED."""
+import os
+import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]          # applications/app2_image/
@@ -39,4 +41,17 @@ TAU_GRID = [1, 2, 3]       # bảng nhạy cảm: các giá trị tau thử
 STOP_GRID = [0.6, 0.7, 0.8, 0.9]
 CV_FOLDS = 5
 CV_TOL = 0.01              # tiêu chí chọn tau (xem docstring s05): sai khác accuracy CV tối đa 1 điểm %
-DATA_TX = ROOT / "data" / "transactions"            # data/transactions/k{k}_{word|grid}/
+DATA_TX = ROOT / "data" / "transactions"            # data/transactions/k{k}_word/
+
+# --- Bước 5: khai thác bằng FPClose (Julia) của nhóm ---
+JULIA = os.environ.get("JULIA") or shutil.which("julia") or "julia"
+MINSUP_GRID = {                                     # % , quét giảm dần (xem tiêu chí trong docstring s06)
+    100: [90, 85, 80, 75, 70, 65, 60, 55, 50],      # k=100 dày (mật độ 0,58): bắt đầu cao
+    300: [60, 55, 50, 45, 40, 35, 30, 25, 20, 15, 10],  # k=300 thưa (0,19); 10% = 14 ảnh/lớp là mức thấp nhất
+}
+MIN_PATTERNS = 50          # tiêu chí: mỗi lớp cần >= 50 tập đóng có độ dài >= MIN_PATTERN_LEN
+MIN_PATTERN_LEN = 2        # "tổ hợp" chi tiết: ít nhất 2 từ
+MINE_TIMEOUT = 300         # giây cho một lần gọi demo.jl; quá thì coi như mức minsup đó không chạy được
+N_JOBS = max(1, min(len(CLASSES), os.cpu_count() or 1))  # số lần gọi FPClose chạy song song (5 lớp)
+CLOSED_CHECK_SAMPLE = 5000  # kiểm tra tính đóng trên tối đa chừng này mẫu mỗi lớp (seed 42); support kiểm tra hết
+DATA_PATTERNS = ROOT / "data" / "patterns"          # output thô của FPClose + bảng mẫu đã chọn

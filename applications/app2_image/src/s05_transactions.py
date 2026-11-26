@@ -2,13 +2,15 @@
 
 Chạy:  python src/s05_transactions.py [--force]
 
-Hai biến thể (thư mục riêng), mỗi biến thể với k = 100 và 300:
-  word : item = từ thị giác + 1                        (MẶC ĐỊNH, dùng cho khai thác chính)
-  grid : item = (từ * 4 + vùng 2x2) + 1                (tùy chọn). Ở đây tau áp lên (từ, vùng), không phải từ,
-         nên là một chế độ khác với word: cùng tau nhưng giữ ít item hơn. Báo cáo phải ghi rõ.
+Hai chế độ, mỗi chế độ với k = 100 và 300:
+  word : item = từ thị giác + 1                        (ghi file giao dịch, khai thác bằng FPClose)
+  grid : item = (từ * 4 + vùng 2x2) + 1                (CHỈ có trong bảng nhạy cảm, không ghi file, không khai thác:
+         đề chỉ yêu cầu giao dịch là tập visual words). Ở đây tau áp lên (từ, vùng), không phải từ, nên là một
+         chế độ khác với word: cùng tau nhưng giữ ít item hơn. Báo cáo phải ghi rõ.
+Chế độ nào được ghi file: WRITE_VARIANTS trong config.py.
 Item bắt đầu từ 1 (SPMF cần số dương). Id ổn định, không đánh số lại sau khi lọc.
 
-Mỗi thư mục data/transactions/k{k}_{variant}/ gồm:
+Mỗi thư mục data/transactions/k{k}_word/ gồm:
   class_<lớp>.txt   giao dịch train của từng lớp       all_train.txt  toàn bộ train (file chung)
   test.txt          giao dịch test (chỉ để kiểm tra ảnh có chứa mẫu hay không)
   transactions_index.csv   mỗi ảnh: path, label, split, n_items, empty, line_common, line_class
@@ -40,9 +42,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 
 from config import (CLASSES, CV_FOLDS, CV_TOL, DATA_IMG, DATA_SIFT, DATA_SPLIT, DATA_TX, DATA_WORDS, GRID,
-                    K_LIST, OUT, SEED, STOP_DF, STOP_GRID, TAU, TAU_GRID)
+                    K_LIST, OUT, SEED, SENS_VARIANTS, STOP_DF, STOP_GRID, TAU, TAU_GRID, WRITE_VARIANTS)
 
-VARIANTS = ["word", "grid"]
 N_REGION = GRID * GRID
 
 
@@ -168,11 +169,12 @@ def main(force: bool = False):
     train_mask = (split.split == "train").to_numpy()
     stats, sens = [], []
     for k in K_LIST:
-        for variant in VARIANTS:
+        for variant in SENS_VARIANTS:
             C = count_matrix(words[f"k{k}"], img_of_kp, region, k, variant, len(split))
-            P, df_count, is_stop = presence(C, train_mask, TAU, STOP_DF)
-            write_variant(split, P, df_count, is_stop, k, variant)
-            stats += group_stats(split, P, k, variant)
+            if variant in WRITE_VARIANTS:
+                P, df_count, is_stop = presence(C, train_mask, TAU, STOP_DF)
+                write_variant(split, P, df_count, is_stop, k, variant)
+                stats += group_stats(split, P, k, variant)
             sens += sensitivity(split, C, train_mask, k, variant)
     stats = pd.DataFrame(stats)
     stats.to_csv(OUT / "transaction_stats.csv", index=False)

@@ -29,7 +29,10 @@ def codebook_path(k: int) -> Path:
 
 
 # --- Bước 4: giao dịch ---
-TAU = 2                    # giữ từ xuất hiện >= TAU lần trong ảnh (mặc định đã chốt)
+TAU = 3                    # giữ từ xuất hiện >= TAU lần trong ảnh. Mặc định ban đầu là 2; đổi sang 3 theo
+                           # tiêu chí đặt trước (docstring s05, commit a541b25) cho cả k=100 và k=300 chế độ word
+WRITE_VARIANTS = ["word"]  # chế độ được ghi file giao dịch và khai thác bằng FPClose
+SENS_VARIANTS = ["word", "grid"]  # chế độ có trong bảng nhạy cảm; grid chỉ dừng ở đây (đề không yêu cầu vị trí)
 STOP_DF = 0.80             # bỏ item có mặt trong > 80% ảnh train
 GRID = 2                   # biến thể lưới GRID x GRID (2x2 -> 4 vùng)
 TAU_GRID = [1, 2, 3]       # bảng nhạy cảm: các giá trị tau thử

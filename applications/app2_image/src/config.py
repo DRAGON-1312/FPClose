@@ -63,6 +63,7 @@ N_FIG_IMAGES = 3           # số ảnh minh họa cho mẫu top-1 của mỗi l
 ANN_DIR = DATA_RAW / "Annotations"                  # giải nén từ Annotations.tar trong caltech-101.zip
 ANN_DIRS = {"airplanes": "Airplanes_Side_2", "Motorbikes": "Motorbikes_16", "Faces_easy": "Faces_3",
             "watch": "watch", "Leopards": "Leopards"}
+TOP_N_CLF = 20             # bước 7: số mẫu mỗi lớp làm đặc trưng cấu hình B (5 lớp -> 100 đặc trưng)
 # Faces_easy -> Faces_3 (không phải Faces_2): hộp của Faces_2 vượt khung ảnh Faces_easy ở 40/40 ảnh thử,
 # Faces_3 thì 0/40. annotation_XXXX.mat <-> image_XXXX.jpg; box_coord = [y1 y2 x1 x2],
 # obj_contour (2, N) = (x, y) tính từ góc (x1, y1) của hộp, theo tọa độ ảnh GỐC.

@@ -7,6 +7,7 @@ Kết quả:
   out/codebook_stats.csv   thống kê mỗi codebook (số mẫu, inertia, kích thước cụm)
 Từ được đánh số 0..k-1; bước giao dịch (s05) mới đổi thành item SPMF bắt đầu từ 1.
 """
+import hashlib
 import sys
 
 import numpy as np
@@ -72,7 +73,9 @@ def main(force: bool = False):
         size = np.bincount(w[train_mask[img_of_kp]], minlength=k)   # số keypoint train mỗi từ
         rows.append({"k": k, "n_sample": len(sample), "inertia": round(km.inertia_, 0), "n_iter": km.n_iter_,
                      "word_size_min": size.min(), "word_size_median": int(np.median(size)),
-                     "word_size_max": size.max(), "unused_words_train": int((size == 0).sum())})
+                     "word_size_max": size.max(), "unused_words_train": int((size == 0).sum()),
+                     # SHA-256 file tâm cụm: đối chiếu nhanh giữa các máy (Colab vs máy cá nhân) ngay sau bước 3
+                     "codebook_sha256": hashlib.sha256(codebook_path(k).read_bytes()).hexdigest()[:16]})
         print(rows[-1])
     np.savez_compressed(DATA_WORDS, **words)
     OUT.mkdir(exist_ok=True)

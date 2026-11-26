@@ -85,8 +85,16 @@ def file_sig(path) -> str:
     return h.hexdigest()
 
 
+def lib_versions() -> dict:
+    """Phiên bản các thư viện ảnh hưởng tới kết quả (SIFT, k-means, lấy mẫu, phân loại): đổi thì các bước chạy lại."""
+    import cv2, numpy, pandas, scipy, sklearn
+    return {"opencv": cv2.__version__, "numpy": numpy.__version__, "pandas": pandas.__version__,
+            "scipy": scipy.__version__, "scikit-learn": sklearn.__version__}
+
+
 def _step_record(inputs, params) -> dict:
-    rec = {"params": params, "inputs": {Path(os.path.relpath(p, REPO)).as_posix(): file_sig(p) for p in inputs}}
+    rec = {"params": params, "libs": lib_versions(),
+           "inputs": {Path(os.path.relpath(p, REPO)).as_posix(): file_sig(p) for p in inputs}}
     return json.loads(json.dumps(rec, sort_keys=True, default=str))   # chuẩn hóa (tuple -> list, khóa -> str)
 
 
@@ -116,3 +124,10 @@ def clear_step(name: str) -> None:
     """Gọi NGAY khi bắt đầu chạy (kể cả --force): xóa dấu hoàn tất cũ, để nếu lần chạy này thất bại giữa chừng
     thì lần sau không bỏ qua bước với output dở dang."""
     (STEP_DIR / f"{name}.json").unlink(missing_ok=True)
+
+
+def env_info() -> dict:
+    """Môi trường chạy các bước: in ra ở notebook và ghi vào gói kết quả để đối chiếu giữa các máy."""
+    import platform
+    import sys
+    return {"python": sys.version.split()[0], "platform": platform.platform(), **lib_versions()}

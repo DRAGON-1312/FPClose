@@ -31,9 +31,20 @@ từng tham số có trong các ô markdown của notebook.
 
 ## Cài đặt và chạy
 
+**Môi trường:** kết quả trong báo cáo được tạo bằng **Python 3.12** và đúng các phiên bản trong `requirements.txt`
+(NumPy 1.26.4, scikit-learn 1.5.2, OpenCV 4.10.0). Đã thử Python 3.13 + NumPy 2.4.6: SIFT và codebook k = 100 giống
+hệt, nhưng codebook k = 300 khác, kéo theo mọi kết quả k = 300. Số luồng CPU không ảnh hưởng.
+
 **Trên Colab:** mở link Colab ở trên, chọn *Runtime → Change runtime type → Python 3, CPU* (không cần GPU), rồi
-*Runtime → Run all* (khoảng 15–25 phút). Notebook tự clone repo, cài thư viện theo `requirements.txt` và cài Julia
-1.13.4. Nếu ngay sau ô cài thư viện có lỗi numpy, chọn *Runtime → Restart session* rồi chạy lại.
+*Runtime → Run all* (khoảng 15–25 phút). Colab dùng Python 3.13, nên ô thiết lập tạo một môi trường **Python 3.12
+riêng bằng `uv`** (`/content/app2_py312`, khoảng 1 phút) và cài `requirements.txt` vào đó; mọi bước `src/sNN_*.py`
+chạy bằng Python này, kernel Colab chỉ đọc và hiển thị CSV/ảnh. Ô thiết lập cũng clone/fetch đúng nhánh
+`REPO_BRANCH`, in mã commit và phiên bản thư viện; Julia 1.13.4 được cài ở mục 5 của notebook.
+
+**Đối chiếu kết quả giữa các máy:** ô cuối của notebook đóng gói 14 bảng `out/*.csv`, bản ghi từng bước
+(`out/_steps/*.json`) và thông tin môi trường vào `app2_out.zip`. Cột `codebook_sha256` trong `codebook_stats.csv`
+cho phép so nhanh ngay sau bước 3 (mốc trên máy dùng cho báo cáo: k = 100 `8bb871d5031ff0f7`, k = 300
+`fbff0276c89d4e59`).
 
 **Trên máy cá nhân** (Python 3.12, Julia 1.13.4):
 

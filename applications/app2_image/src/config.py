@@ -55,3 +55,14 @@ MINE_TIMEOUT = 300         # giây cho một lần gọi demo.jl; quá thì coi 
 N_JOBS = max(1, min(len(CLASSES), os.cpu_count() or 1))  # số lần gọi FPClose chạy song song (5 lớp)
 CLOSED_CHECK_SAMPLE = 5000  # kiểm tra tính đóng trên tối đa chừng này mẫu mỗi lớp (seed 42); support kiểm tra hết
 DATA_PATTERNS = ROOT / "data" / "patterns"          # output thô của FPClose + bảng mẫu đã chọn
+
+# --- Bước 6: growth rate + vẽ mẫu ---
+TOP_TABLE = 10             # số mẫu mỗi lớp trong bảng báo cáo
+TOP_KEEP = MIN_PATTERNS    # số mẫu mỗi lớp lưu cho bước phân loại (s08 dùng top-N <= 20 trong số này)
+N_FIG_IMAGES = 3           # số ảnh minh họa cho mẫu top-1 của mỗi lớp
+ANN_DIR = DATA_RAW / "Annotations"                  # giải nén từ Annotations.tar trong caltech-101.zip
+ANN_DIRS = {"airplanes": "Airplanes_Side_2", "Motorbikes": "Motorbikes_16", "Faces_easy": "Faces_3",
+            "watch": "watch", "Leopards": "Leopards"}
+# Faces_easy -> Faces_3 (không phải Faces_2): hộp của Faces_2 vượt khung ảnh Faces_easy ở 40/40 ảnh thử,
+# Faces_3 thì 0/40. annotation_XXXX.mat <-> image_XXXX.jpg; box_coord = [y1 y2 x1 x2],
+# obj_contour (2, N) = (x, y) tính từ góc (x1, y1) của hộp, theo tọa độ ảnh GỐC.

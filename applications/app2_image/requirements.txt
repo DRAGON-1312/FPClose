@@ -3,3 +3,4 @@ opencv-python-headless==4.10.0.84
 scikit-learn==1.5.2
 matplotlib==3.9.2
 pandas==2.2.3
+scipy==1.17.1

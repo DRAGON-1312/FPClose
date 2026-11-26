@@ -48,24 +48,39 @@ Quy ước tái lập:
 ```
 applications/application_01/
 ├── README.md
-├── market_basket.py          # hàm tiền xử lý (thuần / có tác dụng phụ tách riêng)
+├── market_basket.py          # tiền xử lý, gọi demo.jl, đọc và kiểm tra chéo kết quả (thuần / tác dụng phụ tách riêng)
 ├── data/                     # KHÔNG commit (.gitignore): sinh lại được từ notebook
 │   ├── raw/Online Retail.xlsx
 │   ├── online_retail.pkl (+ .sha256)
 │   ├── transactions.txt      # giao dịch định dạng SPMF, đầu vào của demo.jl
+│   ├── transactions_lt<t>.txt # mục 5.1: giao dịch sau khi bỏ hóa đơn có >= t sản phẩm (cùng id item)
 │   └── item_map.csv          # id, stock_code, description, n_transactions, support_pct
-├── out/                      # KHÔNG commit (.gitignore): output thô của FPClose
+├── out/                      # KHÔNG commit (.gitignore): output thô của FPClose (closed_*, all_*, rules_*_all)
 └── results/                  # commit: bảng và hình dùng trong báo cáo
-    ├── cleaning_steps.csv
-    ├── transaction_stats.csv
-    └── figures/basket_length.png
+    ├── cleaning_steps.csv                 # mục 3.3: các bước làm sạch
+    ├── transaction_stats.csv              # mục 3.5: thống kê giao dịch
+    ├── minsup_survey.csv                  # mục 5: khảo sát minsup (số tập đóng, mọi tập phổ biến, tỷ lệ nén, thời gian)
+    ├── long_invoice_check.csv             # mục 5.1: số tập đóng / tập phổ biến khi bỏ hóa đơn >= 500, >= 200 sản phẩm
+    ├── long_invoice_rules_check.csv       # mục 5.1: top-10 theo lift (gốc) đối chiếu luật khi bỏ hóa đơn >= 200 sản phẩm
+    ├── all_rules.csv                      # mục 6: toàn bộ luật ở MINSUP, MINCONF
+    ├── top10_rules.csv                    # mục 7.1: top-10 theo lift (10 dòng đầu của all_rules)
+    ├── rule_verification.csv              # mục 7.1: kiểm tra chéo toàn bộ luật ở MINSUP bằng phép đếm trực tiếp
+    ├── top10_rules_diverse.csv            # mục 7.2: top-10, mỗi sản phẩm xuất hiện tối đa một lần
+    ├── long_invoice_diverse_check.csv     # mục 7.2: top-10 đa dạng đối chiếu luật khi bỏ hóa đơn >= 200 sản phẩm
+    ├── top10_rules_diverse_ms0.02.csv     # mục 7.3: top-10 đa dạng ở MINSUP_SENS = 2%
+    ├── sensitivity_minsup.csv             # mục 7.3: top-10 đa dạng ở 1% đối chiếu với toàn bộ luật ở 2%
+    ├── rule_verification_ms0.02.csv       # mục 7.3: kiểm tra chéo toàn bộ luật ở MINSUP_SENS
+    └── figures/
+        ├── basket_length.png              # mục 3.5: phân bố độ dài giỏ hàng
+        └── minsup_survey.png              # mục 5: số itemset và tỷ lệ nén theo minsup
 ```
 
 ## Cách chạy
 
-- **Bản chi tiết:** `notebooks/application_01.ipynb` (kernel Python 3, chạy trên Colab hoặc local). Notebook đi qua
-  từng bước: tải dữ liệu, chẩn đoán, làm sạch, tạo giao dịch, thống kê. Các bước khai thác tập đóng, khảo sát minsup,
-  sinh luật, top-10 theo lift và diễn giải sẽ được bổ sung sau.
+- **Bản chi tiết:** `notebooks/application_01.ipynb` (kernel Python 3, chạy trên Colab hoặc local; cần lệnh `julia`
+  cho các mục 4–7). Notebook đi qua từng bước: tải dữ liệu, chẩn đoán, làm sạch, tạo giao dịch, thống kê, khai thác
+  tập đóng, khảo sát minsup, sinh luật, top-10 theo lift, top-10 đa dạng và độ nhạy theo minsup. Phần diễn giải ý
+  nghĩa kinh doanh sẽ được bổ sung sau.
 - **Bản rút gọn:** mục 7.1 của `notebooks/demo.ipynb` (sẽ bổ sung) gọi `market_basket.run_preprocessing(...)` rồi chạy
   FPClose của nhóm trên `data/transactions.txt`.
 - **Chạy riêng phần tiền xử lý** (local, từ gốc repo): `python applications/application_01/market_basket.py`.

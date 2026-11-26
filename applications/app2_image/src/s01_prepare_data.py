@@ -2,9 +2,11 @@
 
 Chạy:  python src/s01_prepare_data.py
 Kết quả: data/images/<lớp>/<file>.png  và  data/split.csv (path, label, split, src)
-Chạy lại an toàn: bỏ qua bước tải/giải nén nếu đã có.
+Chạy lại an toàn: bỏ qua bước tải/giải nén nếu đã có. Ảnh đã resize chỉ được dùng lại khi cách resize không đổi
+(ghi trong data/images/_resize.json); đổi MAX_SIDE thì mọi ảnh được resize lại.
 """
 import csv
+import json
 import tarfile
 import urllib.request
 import zipfile
@@ -65,8 +67,17 @@ def to_gray_resized(src: Path):
     return cv2.resize(img, (round(w * s), round(h * s)), interpolation=interp)
 
 
+RESIZE_TAG = {"MAX_SIDE": MAX_SIDE, "gray": True, "interp": "INTER_AREA khi thu nhỏ, INTER_CUBIC khi phóng to",
+              "format": "png"}
+
+
 def main():
     cat_dir = download_caltech()
+    tag_path = DATA_IMG / "_resize.json"
+    redo = not tag_path.exists() or json.loads(tag_path.read_text(encoding="utf-8")) != RESIZE_TAG
+    if redo:
+        tag_path.unlink(missing_ok=True)       # chỉ ghi lại sau khi resize xong toàn bộ
+        print("Cách resize mới hoặc chưa có ghi nhận -> resize lại mọi ảnh", RESIZE_TAG)
     rows = []
     for label in CLASSES:
         files = sorted((cat_dir / label).glob("*.jpg"))   # sort trước để kết quả không phụ thuộc hệ điều hành
@@ -77,7 +88,7 @@ def main():
         for split, group in (("train", tr), ("test", te)):
             for f in sorted(group):
                 out = DATA_IMG / label / (f.stem + ".png")       # PNG: không nén mất mát lần 2
-                if not out.exists():
+                if redo or not out.exists():
                     out.parent.mkdir(parents=True, exist_ok=True)
                     cv2.imwrite(str(out), to_gray_resized(f))
                 rows.append({"path": out.relative_to(DATA_IMG.parent).as_posix(),
@@ -89,6 +100,7 @@ def main():
         w.writeheader()
         w.writerows(rows)
     print("Đã ghi", DATA_SPLIT, f"({len(rows)} ảnh)")
+    tag_path.write_text(json.dumps(RESIZE_TAG, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
 if __name__ == "__main__":

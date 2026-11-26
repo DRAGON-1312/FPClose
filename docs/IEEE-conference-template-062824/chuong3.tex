@@ -14,9 +14,171 @@ top-10 luật theo lift và ý nghĩa kinh doanh) hoặc \textbf{phát hiện m�
 cùng nhau, khả năng phát hiện lỗi hay hành vi bất thường). Trình bày dữ liệu, cách tạo giao dịch, tham số, kết quả,
 diễn giải.}
 
-\subsection{Ứng dụng 2}
+\subsection{Ứng dụng 2: Khai thác mẫu trực quan trên ảnh}
 \label{sec:app2}
-\todo{Chọn một hướng: \textbf{phân tích dữ liệu sinh học} (genome hoặc protein mã hóa thành giao dịch, ý nghĩa sinh học
-của các pattern) hoặc \textbf{khai thác mẫu trực quan trên ảnh} (bag of visual words: descriptors, codebook k-means,
-mỗi ảnh là một giao dịch, cách dùng các mẫu tìm được). Trình bày dữ liệu, cách tạo giao dịch, tham số, kết quả,
-diễn giải.}
+
+\subsubsection{Bài toán và dữ liệu}
+Ứng dụng tìm các tổ hợp từ thị giác (\textit{visual words}) phổ biến trong từng lớp ảnh, khảo sát chúng mô tả
+vật thể hay vùng nền, và thử sử dụng chúng làm đặc trưng phân loại. Nhóm dùng Caltech-101~\cite{caltech101},
+chọn năm lớp airplanes, Motorbikes, Faces\_easy, watch và Leopards. Mỗi lớp lấy 200 ảnh, chia phân tầng thành
+140 ảnh train và 60 ảnh test, tổng cộng 700/300 ảnh; seed bằng 42. Các lớp có hình dạng và kết cấu khác nhau,
+thuận tiện cho việc quan sát mẫu. Đây là nghiên cứu trường hợp trên năm lớp, không phải đánh giá toàn bộ
+Caltech-101. Không dùng Faces để tránh trùng với Faces\_easy, hoặc lớp nền BACKGROUND\_Google.
+
+\subsubsection{Biến đổi ảnh thành giao dịch}
+Ảnh được chuyển sang mức xám, giữ tỉ lệ khi resize cạnh dài về 400 pixel. SIFT~\cite{lowe2004} được cấu hình
+\texttt{nfeatures=500}; lưu descriptor cùng tọa độ keypoint để đối chiếu mẫu với ảnh. Bộ ảnh cho 449\,891 keypoint,
+trong đó 315\,643 thuộc train. Nhóm lấy khoảng 150\,000 descriptor train, giới hạn tối đa 221 descriptor mỗi ảnh
+để giảm sự áp đảo của ảnh nhiều keypoint, rồi học codebook bằng MiniBatchKMeans với $k\in\{100,300\}$,
+\texttt{n\_init=3}, \texttt{batch\_size=4096}, seed 42. Mỗi descriptor được gán vào tâm gần nhất theo khoảng
+cách Euclid. Codebook chỉ học trên train; test dùng lại các tâm đã học.
+
+Gọi $n_i(w)$ là số keypoint của ảnh $i$ được gán vào từ $w\in\{0,\ldots,k-1\}$. Giao dịch của ảnh là
+\begin{equation}
+T_i=\{w+1\mid n_i(w)\geq\tau,\ w\notin S\},\qquad \tau=3,
+\label{eq:app2-transaction}
+\end{equation}
+trong đó $S$ gồm các từ có mặt, sau ngưỡng $\tau$, trong hơn 80\% ảnh train. Item được cộng 1 để có mã dương,
+sắp tăng và không lặp khi xuất định dạng SPMF. Mỗi giao dịch ghi nhận sự đồng xuất hiện trên toàn ảnh,
+không khẳng định các từ kề nhau hay tạo thành một bộ phận vật thể.
+
+Ngưỡng $\tau$ được chọn theo quy tắc định trước: với stop word 80\%, lấy $\tau$ lớn nhất trong $\{1,2,3\}$
+có accuracy CV 5-fold trên train không thấp hơn mức tốt nhất quá 0,01. Mô hình dùng để chọn là Logistic
+Regression trên vector hiện diện từng item, không phải vector mẫu khai thác. Cả hai codebook chọn $\tau=3$.
+Đây là chỉ báo nội bộ: codebook và stop word được học trên toàn bộ train trước khi chia fold, nên chưa phải
+CV của toàn pipeline. Tập test cuối không tham gia lựa chọn này.
+
+Không có giao dịch rỗng ở cấu hình đã chọn. Độ dài trung bình trên train là 57,0 item với $k=100$ và 58,1
+với $k=300$; riêng airplanes chỉ đạt 37,7 và 31,5. Stop word loại tương ứng một và không từ, do đó tác động
+lọc trong cấu hình này rất nhỏ. Các bước trên được cài trong notebook và các script phụ trợ; OpenCV và
+scikit-learn phục vụ trích đặc trưng, gom cụm và đánh giá, còn khai thác tập phổ biến dùng cài đặt của nhóm.
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=0.92\textwidth]{figures/app2_patterns.png}
+\caption{Mẫu top-1 tại $k=300$ trên hai ảnh train mỗi lớp, lấy từ bộ ảnh minh họa chọn bằng seed 42.
+Chấm màu là tâm keypoint mang từ thuộc mẫu; cùng màu biểu diễn cùng từ trong mỗi lớp; đường vàng là contour
+vật thể. Các ảnh chỉ minh họa, còn tỷ lệ ở Bảng~\ref{tab:app2-top} dùng mọi ảnh train chứa mẫu.}
+\label{fig:app2-patterns}
+\end{figure*}
+
+\subsubsection{Khai thác và lựa chọn mẫu}
+Nhóm gọi FPClose Julia qua \texttt{demo.jl} riêng cho từng lớp, chỉ với giao dịch train. Kết quả là các tập
+phổ biến đóng: không có tập cha thực sự nào cùng support. Biểu diễn này bảo toàn thông tin support của
+các tập phổ biến trong cùng CSDL và ngưỡng; một tập phổ biến có support bằng support lớn nhất trong các
+tập đóng chứa nó. Không dùng kết quả từ thư viện FIM có sẵn cho ứng dụng.
+
+Với mỗi $k$, nhóm quét minsup giảm dần theo bước 5 điểm phần trăm và chọn mức cao nhất mà cả năm lớp đều
+có ít nhất 50 tập đóng dài từ hai item. Ngưỡng chung cho phép đối chiếu các lớp dưới cùng yêu cầu support,
+đồng thời cung cấp ứng viên cho top-10 phân tích và top-20 phân loại. Trước khi chốt quy tắc, nhóm đã chạy
+thử mức 60\% trên ba file để xác định lưới quét. Kết quả chọn 55\% ($77/140$ ảnh) cho $k=100$ và 25\%
+($35/140$ ảnh) cho $k=300$. Airplanes quyết định cả hai ngưỡng, với 63 và 102 tập dài từ hai item.
+
+\begin{table}[!t]
+\centering
+\caption{Số tập phổ biến đóng theo lớp, gồm mọi độ dài.}
+\label{tab:app2-counts}
+\footnotesize
+\begin{tabular}{lrr}\hline
+Lớp & $k=100$, minsup 55\% & $k=300$, minsup 25\%\\\hline
+airplanes & 77 & 132\\
+Motorbikes & 86\,852 & 650\\
+Faces\_easy & 124\,779 & 5\,963\\
+watch & 2\,477 & 1\,145\\
+Leopards & 381\,587 & 2\,604\,564\\\hline
+\end{tabular}
+\end{table}
+
+Bảng~\ref{tab:app2-counts} cho thấy số mẫu chênh lệch rất lớn dù các lớp có cùng số giao dịch. Ngưỡng chung
+bị lớp ít mẫu chi phối, khiến Leopards sinh hơn 2,6 triệu tập ở $k=300$. Số mẫu lớn không đồng nghĩa với
+nhiều thông tin phân biệt độc lập. Nhóm đếm lại support của mọi tập đầu ra bằng bitset Python; tất cả
+khớp. Tính đóng đúng trên các tập được kiểm tra, tối đa 5\,000 tập mỗi lớp; phép kiểm này không xác nhận
+tính đầy đủ của đầu ra. Kiểm thử đối chiếu thuật toán với SPMF được trình bày ở các chương trước.
+
+Để đo mức đặc trưng theo lớp, nhóm dùng growth rate (GR), theo ý tưởng emerging patterns~\cite{dong1999}:
+\begin{equation}
+\mathrm{GR}(X,c)=\frac{s_c(X)/140}{s_{\neg c}(X)/560},
+\label{eq:app2-gr}
+\end{equation}
+với $s_c(X)$ và $s_{\neg c}(X)$ lần lượt là số ảnh train chứa trọn mẫu $X$ trong và ngoài lớp $c$.
+Nếu $s_{\neg c}(X)=0$, đặt GR bằng $\infty$. Chỉ xét mẫu dài từ hai item, xếp theo GR giảm dần, rồi support
+trong lớp giảm dần, độ dài giảm dần và chuỗi item để cố định thứ tự. GR vô cực chỉ cho biết mẫu chưa xuất
+hiện trong 560 ảnh train ngoài lớp, không chứng minh lớp tách biệt hoàn toàn trên dữ liệu mới.
+
+\subsubsection{Phân tích ý nghĩa các mẫu}
+Với mỗi mẫu top-10, trên mọi ảnh train của lớp chứa mẫu, nhóm đếm tỷ lệ tâm keypoint mang từ thuộc mẫu
+nằm trong contour vật thể (\textit{on\_object}). Baseline là tỷ lệ của mọi keypoint trong cùng các ảnh đó.
+Hai tỷ lệ được tính bằng tổng số keypoint, không phải trung bình đều theo ảnh. Bảng~\ref{tab:app2-top}
+trình bày mẫu đứng đầu mỗi lớp ở $k=300$; Hình~\ref{fig:app2-patterns} minh họa ba lớp tiêu biểu.
+
+\begin{table}[!t]
+\centering
+\caption{Mẫu top-1 ở $k=300$. $s_c/s_{\neg c}$ là số ảnh chứa mẫu (mẫu số tương ứng 140/560);
+$p/b$ là tỷ lệ on\_object/baseline. Các số trong $X$ là mã item SPMF.}
+\label{tab:app2-top}
+\scriptsize\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{llrrr}\hline
+Lớp & $X$ & $s_c/s_{\neg c}$ & GR & $p/b$\\\hline
+airplanes & 17,62,254 & 37/44 & 3,36 & 0,185/0,297\\
+Motorbikes & 123,127 & 42/3 & 56 & 0,439/0,779\\
+Faces\_easy & 45,69,113,159,183 & 35/2 & 70 & 0,256/0,394\\
+watch & 45,186,205,230 & 35/5 & 28 & 0,938/0,943\\
+Leopards & 156,263 & 100/0 & $\infty$ & 0,940/0,749\\\hline
+\end{tabular}
+\end{table}
+
+
+
+\textbf{Leopards.} Trung bình on\_object của top-10 là 0,949 so với baseline 0,761. Hình cho thấy các
+keypoint tập trung trên lông báo, phù hợp với giả thuyết mẫu mô tả kết cấu đốm. Ở $k=300$, 2\,582\,554
+trong 2\,604\,468 mẫu dài từ hai item có GR vô cực (99,16\%), nên GR không phân biệt được chúng và support
+trở thành tiêu chí xếp hạng tiếp theo. Mẫu top-1 phủ 100/140 ảnh Leopards, không phải toàn bộ lớp.
+Quan sát vị trí của các mẫu top chưa đủ để xác định nguyên nhân bùng nổ tổng số tập đóng.
+
+\textbf{Faces\_easy và Motorbikes.} Top-10 Faces\_easy có on\_object trung bình 0,267, thấp hơn baseline
+0,422; nhiều điểm nằm ở nền và sát đường viền tóc, cằm. Với Motorbikes, mẫu top-1 có GR 56 nhưng tỷ lệ
+trên vật thể chỉ 0,439 so với baseline 0,779; các điểm xuất hiện ở góc ảnh lẫn trên xe. Vì vậy, mẫu có GR
+cao không nhất thiết mô tả bộ phận vật thể: thông tin nền hoặc biên ảnh cũng có thể gắn với lớp.
+Đây là bằng chứng về vị trí mẫu, chưa phải kiểm chứng nhân quả rằng bộ phân loại dựa vào nền.
+
+\textbf{Airplanes và watch.} Top-10 airplanes có GR khoảng 2,37--3,36 tại $k=300$, cho thấy khả năng
+phân biệt hạn chế trong các mẫu được xét; hình minh họa đầy đủ trong notebook cho thấy nhiều điểm ở mép
+ảnh và đường băng. Với watch, on\_object của top-1 gần baseline (0,938 so với 0,943): vật thể chiếm phần
+lớn ảnh, nên tỷ lệ nằm trong contour cao tự nó chưa chứng minh mẫu tập trung vào vùng đặc biệt.
+
+\subsubsection{Đánh giá phân loại và giới hạn}
+Nhóm so sánh ba biểu diễn với cùng StandardScaler học trên train và Logistic Regression
+(\texttt{max\_iter=5000}, seed 42): A là histogram BoVW chia cho tổng keypoint của ảnh; B là 100 đặc trưng
+nhị phân từ top-20 mẫu mỗi lớp, bằng 1 khi ảnh chứa trọn mẫu; C nối A và B. Test chỉ được gán từ và kiểm tra
+chứa mẫu, không tham gia khai thác hoặc xếp hạng mẫu. Bảng~\ref{tab:app2-classify} báo cáo kết quả trên cùng
+300 ảnh test; confusion matrix và recall từng lớp có trong notebook.
+
+\begin{table}[!t]
+\centering
+\caption{Phân loại trên 300 ảnh test. A: BoVW; B: mẫu; C: A+B.}
+\label{tab:app2-classify}
+\footnotesize
+\begin{tabular}{crrrr}\hline
+$k$ & Biểu diễn & Số chiều & Accuracy (\%) & Macro-F1\\\hline
+100 & A & 100 & 82,33 & 0,8228\\
+100 & B & 100 & 67,00 & 0,6635\\
+100 & C & 200 & 82,33 & 0,8236\\\hline
+300 & A & 300 & 87,00 & 0,8712\\
+300 & B & 100 & 60,33 & 0,6064\\
+300 & C & 400 & 87,67 & 0,8773\\\hline
+\end{tabular}
+\end{table}
+
+B thấp hơn A khoảng 15--27 điểm phần trăm. Điều kiện chứa trọn mẫu làm mất độ phủ: 15/300 ảnh test ở
+$k=100$ và 49/300 ở $k=300$ có vector B toàn 0, nên không thể phân biệt các ảnh này bằng B. A vẫn sử dụng
+phân bố của mọi từ, còn B bỏ tần suất và các từ ngoài bộ mẫu. Một số nhóm mẫu cũng chia sẻ nhiều item;
+tuy nhiên, chưa có thí nghiệm tách riêng ảnh hưởng của độ dư thừa, độ phủ và thông tin nền. C bằng A về
+accuracy ở $k=100$ và hơn hai dự đoán đúng ở $k=300$. Chưa có bằng chứng rõ về lợi ích phân loại của
+cách chọn và biểu diễn mẫu này; kết luận không áp dụng cho mọi cách sử dụng tập phổ biến.
+
+Kết quả chỉ dựa trên một lần chia train/test. Khoảng tin cậy accuracy trong notebook không đo biến thiên
+do đổi tập huấn luyện và không thay thế phép so sánh ghép cặp giữa các mô hình. Phép đo vị trí chỉ xét
+tâm keypoint, trong khi vùng descriptor có thể cắt qua contour. Ngoài ra, resize chủ yếu phóng to ảnh,
+đặc biệt Leopards khoảng 2,1 lần; khác biệt độ phân giải theo lớp có thể ảnh hưởng visual words.
+Trong phạm vi khảo sát, đóng góp rõ nhất của mẫu là hỗ trợ phân tích các tổ hợp đặc trưng và chỉ ra
+sự hiện diện của thông tin nền/biên ảnh mà một con số accuracy không thể diễn tả.

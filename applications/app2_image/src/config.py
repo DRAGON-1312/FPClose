@@ -110,3 +110,9 @@ def mark_step_done(name: str, inputs, params) -> None:
     STEP_DIR.mkdir(parents=True, exist_ok=True)
     (STEP_DIR / f"{name}.json").write_text(json.dumps(_step_record(inputs, params), indent=1, sort_keys=True),
                                           encoding="utf-8")
+
+
+def clear_step(name: str) -> None:
+    """Gọi NGAY khi bắt đầu chạy (kể cả --force): xóa dấu hoàn tất cũ, để nếu lần chạy này thất bại giữa chừng
+    thì lần sau không bỏ qua bước với output dở dang."""
+    (STEP_DIR / f"{name}.json").unlink(missing_ok=True)

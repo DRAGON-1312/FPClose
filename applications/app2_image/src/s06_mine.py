@@ -7,7 +7,7 @@ Mỗi lần gọi `demo.jl` của nhóm cho 1 file + 1 minsup (dạng %, ngưỡ
 Input: data/transactions/k{k}_word/class_<lớp>.txt (CHỈ train). Output thô mỗi lần gọi:
     data/patterns/k{k}_word/ms{minsup}/class_<lớp>.txt   dạng "1 2 3 #SUP: 5" (#SUP là số đếm)
     data/patterns/k{k}_word/ms{minsup}/class_<lớp>.err   stderr của demo.jl (+ dòng wall_seconds)
-Đã có cả hai file thì dùng lại (Colab ngắt giữa chừng không phải chạy lại); --force để chạy lại hết.
+Dùng lại một lần gọi CHỈ KHI cache_key khớp (hash file giao dịch + hash code FPClose + phiên bản Julia); --force để chạy lại hết.
 
 Kết quả:
     out/mining_sweep.csv     mỗi (k, lớp, minsup): số tập đóng, số tập dài >= 2, độ dài lớn nhất, thời gian
@@ -48,7 +48,7 @@ import pandas as pd
 
 from config import (CLASSES, CLOSED_CHECK_SAMPLE, DATA_PATTERNS, DATA_TX, FPCLOSE_DEMO, JULIA, K_LIST,
                     MIN_PATTERN_LEN, MIN_PATTERNS, MINE_TIMEOUT, MINSUP_GRID, N_JOBS, OUT, REPO, SEED, file_sig,
-                    mark_step_done, step_done)
+                    clear_step, mark_step_done, step_done)
 
 VARIANT = "word"
 KV = re.compile(r"(\w+)\s*=\s*([0-9.]+)")
@@ -199,6 +199,7 @@ def main(force: bool = False):
     outs, ins, params = spec(jv)
     if not force and step_done("s06", outs, ins, params):
         return
+    clear_step("s06")                   # chạy lại: bỏ dấu hoàn tất cũ ngay từ đầu
     code_sig = code_signature(jv)
     print(f"FPClose của nhóm: {FPCLOSE_DEMO} | {jv} | {N_JOBS} lần gọi song song", flush=True)
     OUT.mkdir(exist_ok=True)

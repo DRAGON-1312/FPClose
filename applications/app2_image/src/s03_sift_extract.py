@@ -6,7 +6,7 @@ Kết quả:
                       offsets (n_ảnh+1,) int64: keypoint của ảnh i nằm ở [offsets[i], offsets[i+1]),
                       thứ tự ảnh = thứ tự dòng trong data/split.csv.
   out/sift_stats.csv  số keypoint mỗi ảnh (kèm label, split).
-Đã có data/sift.npz thì bỏ qua (dùng --force để chạy lại).
+Bỏ qua khi đã chạy với đúng tham số và đúng nội dung ảnh (out/_steps/s03.json); --force để chạy lại.
 """
 import sys
 
@@ -14,13 +14,15 @@ import cv2
 import numpy as np
 import pandas as pd
 
-from config import (CLASSES, DATA_IMG, DATA_SPLIT, DATA_SIFT, MAX_SIDE, OUT, SIFT_NFEATURES, mark_step_done,
+from config import (CLASSES, DATA_IMG, DATA_SPLIT, DATA_SIFT, MAX_SIDE, OUT, SIFT_NFEATURES, clear_step, mark_step_done,
                     step_done)
 
 
 def spec():
-    """(output, đầu vào, tham số) của bước: dùng để quyết định có bỏ qua được không."""
-    return ([DATA_SIFT, OUT / "sift_stats.csv"], [DATA_SPLIT],
+    """(output, đầu vào, tham số) của bước: dùng để quyết định có bỏ qua được không.
+    Đầu vào gồm NỘI DUNG mọi ảnh trong split.csv: ảnh được resize lại (bước 1) thì bước này chạy lại."""
+    imgs = [DATA_IMG.parent / p for p in pd.read_csv(DATA_SPLIT).path]
+    return ([DATA_SIFT, OUT / "sift_stats.csv"], [DATA_SPLIT] + imgs,
             {"SIFT_NFEATURES": SIFT_NFEATURES, "MAX_SIDE": MAX_SIDE})
 
 
@@ -28,6 +30,7 @@ def main(force: bool = False):
     outs, ins, params = spec()
     if not force and step_done("s03", outs, ins, params):
         return
+    clear_step("s03")                   # chạy lại: bỏ dấu hoàn tất cũ ngay từ đầu
     OUT.mkdir(exist_ok=True)
     split = pd.read_csv(DATA_SPLIT)
     sift = cv2.SIFT_create(nfeatures=SIFT_NFEATURES)      # SIFT xác định (không ngẫu nhiên) nên không cần seed

@@ -40,7 +40,7 @@ from matplotlib.path import Path as MplPath
 
 from config import (ANN_DIR, ANN_DIRS, CLASSES, DATA_IMG, DATA_PATTERNS, DATA_RAW, DATA_SIFT, DATA_SPLIT, DATA_TX,
                     DATA_WORDS, K_LIST, MIN_PATTERN_LEN, N_FIG_IMAGES, OUT, SEED, TOP_KEEP, TOP_TABLE,
-                    mark_step_done, step_done)
+                    clear_step, mark_step_done, step_done)
 from s01_prepare_data import safe_extract_tar
 
 VARIANT = "word"
@@ -192,6 +192,7 @@ def main(force: bool = False):
     outs, ins, params = spec()
     if not force and step_done("s07", outs, ins, params):
         return
+    clear_step("s07")                   # chạy lại: bỏ dấu hoàn tất cũ ngay từ đầu
     ensure_annotations()
     split = pd.read_csv(DATA_SPLIT)
     z, words = np.load(DATA_SIFT), np.load(DATA_WORDS)

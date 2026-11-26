@@ -14,7 +14,7 @@ import pandas as pd
 from sklearn.cluster import MiniBatchKMeans
 
 from config import (DATA_SIFT, DATA_SPLIT, DATA_WORDS, K_LIST, N_SAMPLE_DESC, OUT, SEED, codebook_path,
-                    mark_step_done, step_done)
+                    clear_step, mark_step_done, step_done)
 
 
 def spec():
@@ -50,6 +50,7 @@ def main(force: bool = False):
     outs, ins, params = spec()
     if not force and step_done("s04", outs, ins, params):
         return
+    clear_step("s04")                   # chạy lại: bỏ dấu hoàn tất cũ ngay từ đầu
     split = pd.read_csv(DATA_SPLIT)
     z = np.load(DATA_SIFT)
     desc, offsets = z["desc"], z["offsets"]

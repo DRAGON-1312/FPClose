@@ -25,7 +25,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 from config import (CLASSES, DATA_PATTERNS, DATA_SIFT, DATA_SPLIT, DATA_TX, DATA_WORDS, K_LIST, OUT, SEED, TOP_N_CLF,
-                    mark_step_done, step_done)
+                    clear_step, mark_step_done, step_done)
 
 VARIANT = "word"
 
@@ -73,6 +73,7 @@ def main(force: bool = False):
     outs, ins, params = spec()
     if not force and step_done("s08", outs, ins, params):
         return
+    clear_step("s08")                   # chạy lại: bỏ dấu hoàn tất cũ ngay từ đầu
     split = pd.read_csv(DATA_SPLIT)
     offsets = np.load(DATA_SIFT)["offsets"]
     words = np.load(DATA_WORDS)

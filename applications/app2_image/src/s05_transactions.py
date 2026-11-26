@@ -43,7 +43,7 @@ from sklearn.model_selection import StratifiedKFold, cross_val_score
 
 from config import (CLASSES, CV_FOLDS, CV_TOL, DATA_IMG, DATA_SIFT, DATA_SPLIT, DATA_TX, DATA_WORDS, GRID,
                     K_LIST, OUT, SEED, SENS_VARIANTS, STOP_DF, STOP_GRID, TAU, TAU_GRID, WRITE_VARIANTS,
-                    mark_step_done, step_done)
+                    clear_step, mark_step_done, step_done)
 
 N_REGION = GRID * GRID
 
@@ -178,6 +178,7 @@ def main(force: bool = False):
     outs, ins, params = spec()
     if not force and step_done("s05", outs, ins, params):
         return
+    clear_step("s05")                   # chạy lại: bỏ dấu hoàn tất cũ ngay từ đầu
     OUT.mkdir(exist_ok=True)
     split, words, img_of_kp, region = load_inputs()
     train_mask = (split.split == "train").to_numpy()

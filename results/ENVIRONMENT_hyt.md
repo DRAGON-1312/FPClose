@@ -21,3 +21,8 @@ Ghi tự động bởi `scripts/run_benchmark_grid.jl` ở lần chạy gần nh
 
 Chưa ghi tự động (cần ghi tay trước khi chạy chính thức): chế độ nguồn/hiệu năng của máy, ứng dụng nền đang mở,
 nhiệt độ. Mọi số liệu trên cùng một biểu đồ phải đo trên cùng máy.
+
+**Ghi chú.** File này ghi môi trường của lần chạy ngày 2026-11-24 trên máy HYT. Kết quả từ máy này còn được dùng trong
+báo cáo là `correctness/grid_correctness_fi_all_levels.csv` (so mọi frequent itemset với SPMF). Mã nguồn `src/` không
+thay đổi từ commit 5434a47 (lần đo hiệu năng trên máy MSI) đến commit 5c51a8e. Mọi số liệu thời gian và bộ nhớ trong
+báo cáo được đo trên máy MSI (`results/ENVIRONMENT.md`).

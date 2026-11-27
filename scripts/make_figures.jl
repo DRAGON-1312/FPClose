@@ -2,7 +2,7 @@
 #
 #   julia --project=scripts/plots scripts/make_figures.jl
 #
-# Hoặc mở notebooks/chapter2_results.ipynb: notebook `include` file này rồi gọi từng hàm, kèm mô tả và nhận xét.
+# Hoặc có thể include file này trong một phiên Julia rồi gọi từng hàm.
 #
 # Môi trường vẽ riêng (scripts/plots/Project.toml, chỉ có Plots.jl) để Project.toml chính của thuật toán
 # không phải cài thư viện vẽ. Lần đầu: julia --project=scripts/plots -e "using Pkg; Pkg.instantiate()"
@@ -139,6 +139,13 @@ Hình của báo cáo nay do scripts/plot_results.jl (nhánh main) sinh vào res
 """
 const WRITE_FIGURES = get(ENV, "FPCLOSE_SAVE_FIGURES", "0") == "1"
 
+"""
+Ghi bảng LaTeX vào docs/.../tables/ và hình peak_rss_basic_optimized vào results/figures/ hay không. Mặc định CÓ (chạy
+bằng dòng lệnh để sinh lại tài liệu cho báo cáo). Notebook đặt FPCLOSE_SAVE_TABLES=0 trước khi include để chỉ đọc và
+hiển thị, không ghi đè file của báo cáo.
+"""
+const WRITE_TABLES = get(ENV, "FPCLOSE_SAVE_TABLES", "1") == "1"
+
 "Lưu hình `p` thành results/figures/<name>.pdf và .png nếu WRITE_FIGURES; luôn trả về `p` để notebook hiển thị."
 function save_figure(p, name)
     WRITE_FIGURES || return p
@@ -198,6 +205,7 @@ function save_table(name, header, rows; align = "l" * "r"^(length(header) - 1))
     # tiêu đề nhiều dòng: tabular lồng căn theo dòng cuối, để mọi ô tiêu đề cùng một đường chân chữ
     head(s) = occursin('\n', s) ? "\\begin{tabular}[b]{@{}c@{}}" * join(tex.(split(s, '\n')), "\\\\") * "\\end{tabular}" :
                                   tex(s)
+    WRITE_TABLES || return markdown            # notebook: chỉ hiển thị, không ghi đè bảng của báo cáo
     open(joinpath(TABLES, "$name.tex"), "w") do io
         println(io, "\\begin{tabular}{", align, "}")
         println(io, "\\hline")
@@ -452,6 +460,7 @@ function peak_rss_figure()
     end
     base = median(num(r["baseline_mem_mb"]) for r in MEMORY)
     hline!(p, [base]; color = INK, linestyle = :dash, linewidth = 1, label = @sprintf("mốc sau warm-up ≈ %.0f MB", base))
+    WRITE_TABLES || return p                   # notebook: không ghi đè hình của báo cáo
     for ext in ("pdf", "png")
         savefig(p, joinpath(FIGURES, "peak_rss_basic_optimized.$ext"))
     end
@@ -487,8 +496,8 @@ only", "Không
 cắt nhánh",
                                                 "Không
 FP-array", "Không
-kết thúc sớm", "Không
-exact count",
+kết thúc sớm", "Không so
+count chính xác",
                                                 "Không CFI-tree
 rút gọn"], rows; align = "lrrrrrrrr")
     return (memory = memory_md, ablation = ablation_md)
@@ -525,7 +534,16 @@ function scalability_figure_and_table()
     save_figure(plot(pa; size = COL, left_margin = 1Plots.mm), "scalability_time")
     save_figure(plot(pb; size = COL, left_margin = 1Plots.mm), "scalability_ratio")
     fig = save_figure(plot(pa, pb; layout = (1, 2), size = WIDE), "scalability")
+    return (figure = fig, table = scalability_table())
+end
 
+"Bảng scalability (không dựng hình): thời gian trung vị của nhóm và SPMF theo kích thước tập con của Retail."
+function scalability_table()
+    sc = median_summary(joinpath(RESULTS, "scalability", "scalability.csv"), ["fraction_pct", "minsup_pct"])
+    fracs = sort(unique(parse(Int, r["fraction_pct"]) for r in sc))
+    t(f, m, tool) = num(only(r for r in sc if parse(Int, r["fraction_pct"]) == f && r["minsup_pct"] == m &&
+                                              r["tool"] == tool)["time_s"])
+    ms = sort(unique(r["minsup_pct"] for r in sc); by = x -> -parse(Float64, x))
     rows = Vector{String}[]
     for f in fracs
         r = first(x for x in sc if parse(Int, x["fraction_pct"]) == f)
@@ -533,13 +551,12 @@ function scalability_figure_and_table()
                      (@sprintf("%.3f", t(f, m, tool)) for m in ms for tool in ("ours_opt", "spmf"))...])
     end
     short = Dict("ours_opt" => "Nhóm", "spmf" => "SPMF")
-    table = save_table("scalability_table", ["Kích
+    return save_table("scalability_table", ["Kích
 thước", "Giao
 dịch",
                        ("$(short[tool])
 $(pct(m))" for m in ms for tool in ("ours_opt", "spmf"))...],
                        rows; align = "lr" * "r"^(2 * length(ms)))
-    return (figure = fig, table = table)
 end
 
 # ---------------------------------------------------------------------------
@@ -571,26 +588,34 @@ function txlen_figure_and_table()
     save_figure(plot(pa; size = COL, left_margin = 1Plots.mm), "txlen_time")
     save_figure(plot(pb; size = COL, left_margin = 1Plots.mm), "txlen_itemsets")
     fig = save_figure(plot(pa, pb; layout = (1, 2), size = WIDE), "txlen")
+    return (figure = fig, table = txlen_table())
+end
 
+"Bảng độ dài giao dịch (không dựng hình): số closed itemsets, thời gian trung vị của nhóm và SPMF, tỉ lệ."
+function txlen_table()
+    tx = median_summary(joinpath(RESULTS, "txlen", "txlen.csv"), ["avg_length", "minsup_pct"])
+    lens = sort(unique(parse(Float64, r["avg_length"]) for r in tx))
+    get(l, m, tool, col) = num(only(r for r in tx if parse(Float64, r["avg_length"]) == l && r["minsup_pct"] == m &&
+                                                     r["tool"] == tool)[col])
+    ms = sort(unique(r["minsup_pct"] for r in tx); by = x -> -parse(Float64, x))
     rows = Vector{String}[]
     for l in lens, m in ms
         push!(rows, [@sprintf("%.0f", l), pct(m), thousands(Int(get(l, m, "ours_opt", "n_itemsets"))),
                      @sprintf("%.3f", get(l, m, "ours_opt", "time_s")), @sprintf("%.3f", get(l, m, "spmf", "time_s")),
                      @sprintf("%.2f", get(l, m, "ours_opt", "time_s") / get(l, m, "spmf", "time_s"))])
     end
-    table = save_table("txlen_table", ["Độ dài
+    return save_table("txlen_table", ["Độ dài
 TB", "minsup", "Closed
 itemsets", "Nhóm
 (s)", "SPMF
 (s)", "Nhóm /
 SPMF"],
                        rows; align = "rrrrrr")
-    return (figure = fig, table = table)
 end
 
 # ---------------------------------------------------------------------------
-# Chạy bằng dòng lệnh: sinh mọi hình và bảng. Khi `include` từ notebooks/chapter2_results.ipynb thì chỉ nạp các
-# hàm, notebook tự gọi từng hàm.
+# Chạy bằng dòng lệnh: sinh mọi hình và bảng. Ngoài ra có thể include file này trong một phiên Julia rồi gọi từng
+# hàm (khi include, `main()` không tự chạy).
 
 function main()
     datasets_table()

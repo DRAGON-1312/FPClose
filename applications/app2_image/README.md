@@ -36,9 +36,10 @@ từng tham số có trong các ô markdown của notebook.
 codebook k = 100 giống hệt, nhưng codebook k = 300 khác. Số luồng CPU không ảnh hưởng.
 
 **Đặc trưng đã lưu (mặc định):** ngay cả với cùng Python 3.12 và cùng phiên bản thư viện, chạy trên Colab (Linux) cho
-**SIFT khác** (số keypoint mỗi ảnh giống hệt nhưng nội dung keypoint khác: gán từ đã lưu cho SIFT tính lại chỉ trùng
-~30%) và **codebook k-means khác** (inertia lệch < 0,6% nhưng ARI giữa hai cách chia cụm chỉ 0,31–0,37) so với máy
-Windows dùng làm báo cáo: thứ tự và tập lệnh tính số thực khác nhau theo hệ điều hành/CPU. Vì vậy mặc định:
+**SIFT khác** (số keypoint và vị trí keypoint giống hệt, nhưng descriptor khác: chỉ 28,8% keypoint trùng descriptor theo
+thứ tự; gán từ đã lưu cho SIFT tính lại chỉ trùng ~30%) và **k-means k = 300 khác** (với cùng đầu vào: inertia lệch +0,07%,
+ARI 0,33; k = 100 thì trùng từng byte) so với máy Windows dùng làm báo cáo: thứ tự và tập lệnh tính số thực khác nhau
+theo hệ điều hành/CPU. Vì vậy mặc định:
 - bước 2 dùng **SIFT đã lưu** (`features/sift.npz` trên Hugging Face, commit cố định, kiểm tra SHA-256);
 - bước 3 dùng **codebook và từ thị giác đã lưu** trong `reference/` (kiểm tra SHA-256).
 

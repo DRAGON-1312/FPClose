@@ -30,8 +30,8 @@ SHA của spmf.jar, timeout 600 s, 3 lần đo cho mỗi cấu hình). Cột `ma
 |---|---|---|---|---|---|
 | `runtime_<dataset>` (mỗi dataset một hình) | `runtime/grid_runtime.csv` | `time_with_write_s` (nhóm và SPMF), `minsup_pct`, `tool`, `status` | minsup (%), **trục thứ tự**: các mức đặt cách đều 1..k, nhãn là giá trị minsup giảm dần | Thời gian (s), **thang log**, mốc 1–2–5 | Trung vị theo (dataset, minsup, tool). Hai đường: FPClose (nhóm) và SPMF |
 | `runtime_grid` | như trên | như trên | như trên (mỗi ô một dataset) | như trên | Lưới 3 cột gồm mọi dataset. Chú giải chỉ ở ô đầu tiên |
-| `itemsets_vs_minsup` | `runtime/grid_runtime.csv` | `n_itemsets` (của nhóm, thiếu thì lấy của SPMF) | minsup (%), **thang log**, giảm dần, mốc 1–2–5 | Số tập phổ biến đóng, **thang log** | Tiêu đề "Số tập phổ biến đóng theo minsup". Mỗi dataset một đường |
-| `memory_variants_grid` | `memory/basic_vs_optimized.csv` | `mem_delta_mb`, `variant` | Biến thể (**trục phân loại**) | Bộ nhớ thực dùng (MB), **tuyến tính** từ 0 | Trung vị theo (dataset, variant), đo tại minsup giữa lưới (ghi trong tiêu đề ô) |
+| `itemsets_vs_minsup` | (a) `correctness/grid_correctness_fi_all_levels.csv`; (b) `runtime/grid_runtime.csv` | (a) `n_ours` (số frequent itemset do nhóm khôi phục từ tập đóng; chỉ dòng `mode = all_fi`, `status = OK`; đã kiểm `n_ours = n_spmf`); (b) `n_itemsets` (của nhóm, thiếu thì lấy của SPMF) | minsup (%), **thang log**, giảm dần, mốc 0,1 / 1 / 10 / 100 | Số itemset, **thang log**, hai ô dùng chung giới hạn | Hai ô cạnh nhau: (a) "Số frequent itemset theo minsup" (52/56 cấu hình; 4 cấu hình SKIPPED vì vượt 2 triệu FI không vẽ, có ghi chú trong tiêu đề ô), (b) "Số tập phổ biến đóng theo minsup". Mỗi dataset một đường, cùng màu và marker ở hai ô, chú giải chung bên phải ô (b). Thiếu CSV của ô (a) thì chỉ vẽ ô (b) |
+| `memory_variants_grid` | `memory/basic_vs_optimized.csv` | `mem_delta_mb`, `variant` | Biến thể (**trục phân loại**) | RAM tăng thêm so với mức sau warm-up (MB), **tuyến tính** từ 0 | Trung vị theo (dataset, variant), đo tại minsup giữa lưới (ghi trong tiêu đề ô) |
 | `time_variants_grid` | `memory/basic_vs_optimized.csv` | `mine_s` | Biến thể (**trục phân loại**) | Thời gian khai thác (s), **tuyến tính** từ 0 | Trung vị. Chỉ tính thời gian khai thác, không gồm đọc/ghi |
 | `ablation_time_relative` | `memory/basic_vs_optimized.csv` | `mine_s` | Biến thể (**trục phân loại**) | Thời gian / optimized, **tuyến tính** từ 0 | Với mỗi biến thể, lấy `mine_s / mine_s(optimized)` trên từng dataset rồi tính trung bình nhân qua các dataset. Đường nét đứt ở mức 1 |
 | `scalability_time` | `scalability/scalability.csv` | `fraction_pct`, `minsup_pct`, `time_with_write_s` | Phần trăm giao dịch của Retail (%), **tuyến tính**, mốc tại các mức đã đo | Thời gian (s), **tuyến tính** từ 0 | Trung vị. Mỗi minsup một cặp đường nhóm/SPMF |
@@ -72,11 +72,11 @@ script.
 | basic | `basic` | Tắt mọi tối ưu |
 | pruning-only | `paper` | Chỉ bật cắt nhánh dòng 8 (không phải toàn bộ các tối ưu của bài báo) |
 | optimized | `optimized` | Mặc định của `fpclose` (bật mọi tối ưu), dùng làm mốc so sánh |
-| −cắt dòng 8 | `opt_no_prune_line8` | optimized nhưng tắt cắt nhánh dòng 8 |
-| −FP-array | `opt_no_fparray` | optimized nhưng tắt FP-array |
-| −dừng sớm | `opt_no_early_termination` | optimized nhưng tắt dừng sớm |
-| −đếm chính xác | `opt_no_exact_count` | optimized nhưng tắt đếm chính xác |
-| −CFI-tree rút gọn | `opt_no_reduced_cfitree` | optimized nhưng tắt CFI-tree rút gọn |
+| Không cắt nhánh | `opt_no_prune_line8` | optimized nhưng tắt cắt nhánh dòng 8 |
+| Không FP-array | `opt_no_fparray` | optimized nhưng tắt FP-array |
+| Không kết thúc sớm | `opt_no_early_termination` | optimized nhưng tắt dừng sớm |
+| Không so count chính xác | `opt_no_exact_count` | optimized nhưng tắt đếm chính xác |
+| Không CFI-tree rút gọn | `opt_no_reduced_cfitree` | optimized nhưng tắt CFI-tree rút gọn |
 
 Màu cột: optimized màu xanh (cùng màu của nhóm), các biến thể ablation màu xanh nhạt, basic/pruning-only màu xám.
 

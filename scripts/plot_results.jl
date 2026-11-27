@@ -34,14 +34,14 @@ const MINSUP_LINESTYLES = [:solid, :dash, :dot, :dashdot]
 const DATASET_MARKERS = [:circle, :rect, :utriangle, :diamond, :dtriangle, :pentagon, :hexagon, :star5, :xcross, :cross]
 
 # --- Nhãn ngắn cho biến thể ablation (tên biến thể lấy từ CSV; tên lạ thì giữ nguyên) ---
-const VARIANT_SHORT = Dict("prune_line8" => "cắt dòng 8", "fparray" => "FP-array", "early_termination" => "dừng sớm",
-                           "exact_count" => "đếm chính xác", "reduced_cfitree" => "CFI-tree rút gọn")
+const VARIANT_SHORT = Dict("prune_line8" => "cắt nhánh", "fparray" => "FP-array", "early_termination" => "kết thúc sớm",
+                           "exact_count" => "so count chính xác", "reduced_cfitree" => "CFI-tree rút gọn")
 
 """
-Nhãn trục cho biến thể: opt_no_X → "−X" (tắt tối ưu X); biến thể `paper` (tên trong CSV) hiện là "pruning-only" vì
-nó chỉ bật cắt nhánh dòng 8, không phải toàn bộ bài báo gốc; còn lại giữ tên.
+Nhãn trục cho biến thể: opt_no_X → "Không X" (tắt tối ưu X, ví dụ "Không cắt nhánh"); biến thể `paper` (tên trong CSV)
+hiện là "pruning-only" vì nó chỉ bật cắt nhánh dòng 8, không phải toàn bộ bài báo gốc; còn lại giữ tên.
 """
-variant_label(v::AbstractString) = startswith(v, "opt_no_") ? "−" * get(VARIANT_SHORT, v[8:end], v[8:end]) :
+variant_label(v::AbstractString) = startswith(v, "opt_no_") ? "Không " * get(VARIANT_SHORT, v[8:end], v[8:end]) :
                                    v == "paper" ? "pruning-only" : String(v)
 
 "Màu cột của biến thể: optimized = màu của nhóm, ablation (opt_no_*) = xanh nhạt, basic/pruning-only (paper) = xám."
@@ -201,15 +201,58 @@ end
 # =============================================================================
 
 """
-Số closed itemset theo minsup, mỗi dataset một đường (lấy n_itemsets của ours; thiếu thì lấy của SPMF),
-trục x minsup (log, giảm dần), trục y log. Một hình chung khổ 7in, chú giải bên phải.
+Đọc số frequent itemset (FI) từ results/correctness/grid_correctness_fi_all_levels.csv: các dòng mode = all_fi và
+status = OK, giá trị là n_ours (FI do nhóm khôi phục từ tập đóng). Kiểm tra n_ours == n_spmf ở từng dòng (@warn nếu
+khác). Trả `nothing` nếu thiếu file; ngược lại (counts = dataset => (xs, ys), n_ok, n_skipped, n_mismatch, limit).
 """
-function fig_itemsets(rt, outdir)
-    p = plot(; size = (W_DOUBLE, inch(2.8)), legend = :outerright, xflip = true, xscale = :log10, yscale = :log10,
-             xlabel = "minsup (%, thang log)", ylabel = "Số tập phổ biến đóng (thang log)",
-             title = "Số tập phổ biến đóng theo minsup", left_margin = 2Plots.mm, bottom_margin = 2Plots.mm)
-    allx, ally = Float64[], Float64[]
-    for (i, ds) in enumerate(unique(rt.dataset))
+function load_fi_counts(resdir)
+    path = joinpath(resdir, "correctness", "grid_correctness_fi_all_levels.csv")
+    if !isfile(path)
+        @warn "itemsets: không có $path, chỉ vẽ số tập phổ biến đóng"
+        return nothing
+    end
+    df = load_results_csv(path)
+    all_fi = df[df.mode .== "all_fi", :]
+    ok = all_fi[all_fi.status .== "OK", :]
+    n_mismatch = 0
+    for r in eachrow(ok)
+        if tofloat(r.n_ours) != tofloat(r.n_spmf)
+            n_mismatch += 1
+            @warn "itemsets: $(r.dataset) minsup $(fmt_dec(r.minsup_pct))%: n_ours = $(r.n_ours) khác n_spmf = $(r.n_spmf)"
+        end
+    end
+    # giới hạn số FI (--fi-limit) đọc từ ghi chú của dòng SKIPPED, ví dụ "so_FI_vuot_gioi_han_2000000"
+    notes = [string(coalesce(n, "")) for n in all_fi[all_fi.status .!= "OK", :note]]
+    ms = filter(!isnothing, [match(r"(\d{4,})", n) for n in notes])
+    limit = isempty(ms) ? missing : parse(Int, first(ms)[1])
+    counts = Dict{String,Tuple{Vector{Float64},Vector{Float64}}}()
+    for g in groupby(ok, :dataset; sort = false)
+        g = sort(g, :minsup_pct)
+        xs, ys = clean_xy(g.minsup_pct, tofloat.(g.n_ours); logy = true, ctx = "itemsets FI/$(g[1, :dataset])")
+        isempty(xs) || (counts[String(g[1, :dataset])] = (xs, ys))
+    end
+    return (counts = counts, n_ok = nrow(ok), n_skipped = nrow(all_fi) - nrow(ok), n_mismatch = n_mismatch,
+            limit = limit)
+end
+
+"Giới hạn số FI dạng chữ: 2000000 → \"2 triệu\"; không rõ thì \"giới hạn\"."
+fi_limit_text(limit) = limit === missing ? "giới hạn" :
+                       (limit % 1_000_000 == 0 ? "$(limit ÷ 1_000_000) triệu" : fmt_dec(limit))
+
+"""
+Số itemset theo minsup, khổ 7in, hai ô cạnh nhau với cùng màu và marker cho mỗi CSDL, chú giải chung bên phải ô (b):
+(a) số frequent itemset (FI) do nhóm khôi phục từ tập đóng (n_ours của grid_correctness_fi_all_levels.csv, dòng
+mode = all_fi và status = OK; cấu hình SKIPPED vì vượt giới hạn số FI không vẽ, có ghi chú trong tiêu đề ô);
+(b) số closed itemset (n_itemsets của ours trong grid_runtime, thiếu thì lấy của SPMF). Trục x là minsup thật (thang
+log, giảm dần); trục y thang log, hai ô dùng chung giới hạn để so độ lớn. Thiếu CSV FI thì chỉ vẽ ô (b) như cũ.
+"""
+function fig_itemsets(rt, outdir; resdir = DEFAULT_RESULTS)
+    dsets = unique(rt.dataset)
+    style(i) = (c = palette(:tab10)[mod1(i, 10)];
+                (color = c, markercolor = c, markerstrokecolor = c,
+                 markershape = DATASET_MARKERS[mod1(i, length(DATASET_MARKERS))]))
+    closed = Dict{String,Tuple{Vector{Float64},Vector{Float64}}}()
+    for ds in dsets
         d = rt[rt.dataset .== ds, :]
         cnt = Dict{Float64,Float64}()
         for tool in (SPMF, OURS), r in eachrow(d[d.tool .== tool, :])   # ours ghi đè SPMF
@@ -217,17 +260,45 @@ function fig_itemsets(rt, outdir)
         end
         xs0 = sort!(collect(keys(cnt)))
         xs, ys = clean_xy(xs0, [cnt[x] for x in xs0]; logy = true, ctx = "itemsets/$ds")
-        isempty(xs) && (@warn "itemsets/$ds: không có điểm nào"; continue)
-        c = palette(:tab10)[mod1(i, 10)]
-        plot!(p, xs, ys; label = String(ds), color = c, markercolor = c, markerstrokecolor = c,
-              markershape = DATASET_MARKERS[mod1(i, length(DATASET_MARKERS))])
-        append!(allx, xs)
-        append!(ally, ys)
+        isempty(xs) ? (@warn "itemsets/$ds: không có điểm nào") : (closed[String(ds)] = (xs, ys))
     end
-    isempty(allx) && (@warn "itemsets: không có dữ liệu để vẽ"; return)
-    t = nice_log_ticks(minimum(allx), maximum(allx))
-    plot!(p; xticks = (t, fmt_dec.(t)), xlims = (minimum(allx) / 1.3, maximum(allx) * 1.3))
-    log_axis_y!(p, ally)
+    isempty(closed) && (@warn "itemsets: không có dữ liệu để vẽ"; return)
+    fi = load_fi_counts(resdir)
+    xlab = "minsup (%, thang log)"
+
+    if fi === nothing          # chỉ ô (b), như bản cũ
+        p = plot(; size = (W_DOUBLE, inch(2.8)), legend = :outerright, xflip = true, xscale = :log10, yscale = :log10,
+                 xlabel = xlab, ylabel = "Số tập phổ biến đóng (thang log)",
+                 title = "Số tập phổ biến đóng theo minsup", left_margin = 2Plots.mm, bottom_margin = 2Plots.mm)
+        for (i, ds) in enumerate(dsets)
+            haskey(closed, String(ds)) && plot!(p, closed[String(ds)]...; label = String(ds), style(i)...)
+        end
+        panels = (1,)
+    else
+        println("  itemsets: ô (a) vẽ $(fi.n_ok) cấu hình FI, bỏ $(fi.n_skipped) cấu hình SKIPPED; ",
+                "số dòng n_ours ≠ n_spmf: $(fi.n_mismatch)")
+        p = plot(; layout = grid(1, 2; widths = [0.43, 0.57]), size = (W_DOUBLE, inch(3.1)), xflip = true,
+                 xscale = :log10, yscale = :log10, xlabel = xlab, left_margin = 2Plots.mm, bottom_margin = 3Plots.mm,
+                 top_margin = 1Plots.mm)
+        for (i, ds) in enumerate(dsets)
+            haskey(fi.counts, String(ds)) && plot!(p, fi.counts[String(ds)]...; subplot = 1, label = "", style(i)...)
+            haskey(closed, String(ds)) && plot!(p, closed[String(ds)]...; subplot = 2, label = String(ds), style(i)...)
+        end
+        note = fi.n_skipped > 0 ? "\n($(fi.n_skipped) cấu hình > $(fi_limit_text(fi.limit)) FI không vẽ)" : ""
+        plot!(p; subplot = 1, title = "(a) Số frequent itemset theo minsup" * note, legend = false,
+              ylabel = "Số itemset (thang log)")
+        plot!(p; subplot = 2, title = "(b) Số tập phổ biến đóng theo minsup", legend = :outerright)
+        panels = (1, 2)
+    end
+    # trục x chung (minsup thật) và trục y chung cho mọi ô
+    allx = vcat([v[1] for v in values(closed)]..., (fi === nothing ? Float64[] : [v[1] for v in values(fi.counts)])...)
+    ally = vcat([v[2] for v in values(closed)]..., (fi === nothing ? Float64[] : [v[2] for v in values(fi.counts)])...)
+    xl = (minimum(allx) / 1.3, maximum(allx) * 1.3)
+    t = nice_log_ticks(xl...; mantissas = (1,))     # chỉ mốc 10^k: ô hẹp, dãy 1–2–5 hay 1–5 làm nhãn dính nhau
+    for sp in panels
+        plot!(p; subplot = sp, xticks = (t, fmt_dec.(t)), xlims = xl)
+        log_axis_y!(p, ally; subplot = sp)
+    end
     save_figure(p, outdir, "itemsets_vs_minsup")
 end
 
@@ -297,7 +368,7 @@ function fig_ablation_relative(mem, outdir)
             size = (W_SINGLE, inch(2.6)), xticks = (1:length(variants), variant_label.(variants)), xrotation = 45,
             xlims = (0.3, length(variants) + 0.7), ylims = (0, 1.15 * maximum(ys)), grid = :y,
             ylabel = "Thời gian / optimized", bottom_margin = 3Plots.mm,
-            title = "Ablation thời gian (TB nhân trên $(maximum(ns)) dataset)")
+            title = "Thời gian khai thác / optimized ($(maximum(ns)) CSDL)")
     hline!(p, [1.0]; color = :black, linestyle = :dash, linewidth = 0.8, label = "")
     save_figure(p, outdir, "ablation_time_relative")
 end
@@ -413,15 +484,15 @@ function main(args)
                 rt === nothing && (rt = load_tool_runs(joinpath(resdir, "runtime", "grid_runtime.csv"),
                                                        [:dataset, :minsup_pct, :tool]; what = "runtime"))
                 rt === nothing && (@warn "$g: không có dữ liệu runtime, bỏ qua"; continue)
-                g == "runtime" ? fig_runtime(rt, outdir) : fig_itemsets(rt, outdir)
+                g == "runtime" ? fig_runtime(rt, outdir) : fig_itemsets(rt, outdir; resdir)
             elseif g == "memory"
                 mem = load_memory_agg(resdir)
                 mem === nothing && (@warn "memory: không có dữ liệu, bỏ qua"; continue)
-                fig_variant_bars(mem, outdir; col = :mem_delta_mb, ylabel = "Bộ nhớ thực dùng (MB)",
-                                 title = "Bộ nhớ thuật toán thực dùng (peak − baseline, trung vị)",
+                fig_variant_bars(mem, outdir; col = :mem_delta_mb, ylabel = "RAM tăng thêm (MB)",
+                                 title = "RAM tối đa tăng thêm so với mức sau warm-up (trung vị 3 lần đo)",
                                  name = "memory_variants_grid")
                 fig_variant_bars(mem, outdir; col = :mine_s, ylabel = "Thời gian khai thác (s)",
-                                 title = "Thời gian khai thác theo biến thể (trung vị, không gồm đọc/ghi)",
+                                 title = "Thời gian khai thác theo biến thể (trung vị 3 lần đo, không gồm đọc/ghi file)",
                                  name = "time_variants_grid")
                 fig_ablation_relative(mem, outdir)
             elseif g == "scalability"

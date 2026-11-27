@@ -35,6 +35,13 @@ từng tham số có trong các ô markdown của notebook.
 (NumPy 1.26.4, scikit-learn 1.5.2, OpenCV 4.10.0). Đã thử Python 3.13 + NumPy 2.4.6: SIFT và codebook k = 100 giống
 hệt, nhưng codebook k = 300 khác, kéo theo mọi kết quả k = 300. Số luồng CPU không ảnh hưởng.
 
+**Codebook đã lưu (mặc định):** ngay cả với cùng Python 3.12 và cùng phiên bản thư viện, k-means trên Colab (Linux)
+cho codebook k = 100 và k = 300 khác máy Windows dùng làm báo cáo (SIFT thì giống hệt): thứ tự cộng số thực khác nhau
+theo hệ điều hành/CPU. Vì vậy bước 3 mặc định **dùng codebook và từ thị giác đã lưu trong `reference/`** (bản dùng cho
+báo cáo, kiểm tra SHA-256) thay vì học lại; các bước sau (giao dịch, FPClose, growth rate, phân loại) chạy lại bình
+thường. Học lại k-means trên máy đang chạy: đặt `APP2_RELEARN_CODEBOOK=1`. Khi học lại trên Colab, số liệu đổi
+(minsup k = 300 thành 20%, số tập đóng, accuracy lệch 0,3–3 điểm) nhưng kết luận định tính giữ nguyên.
+
 **Trên Colab:** mở link Colab ở trên, chọn *Runtime → Change runtime type → Python 3, CPU* (không cần GPU), rồi
 *Runtime → Run all* (khoảng 15–25 phút). Colab dùng Python 3.13, nên ô thiết lập tạo một môi trường **Python 3.12
 riêng bằng `uv`** (`/content/app2_py312`, khoảng 1 phút) và cài `requirements.txt` vào đó; mọi bước `src/sNN_*.py`

@@ -22,6 +22,12 @@ SIFT_NFEATURES = 500
 CALTECH_URL = "https://data.caltech.edu/records/mzrjq-6wc02/files/caltech-101.zip?download=1"
 
 K_LIST = [100, 300]        # kích thước codebook thử
+# Dùng codebook + từ thị giác đã lưu trong reference/ (bản đã dùng cho báo cáo) thay vì học lại k-means.
+# Lý do: k-means cho kết quả khác nhau giữa các nền tảng dù cùng phiên bản thư viện và cùng seed (Windows vs Linux/
+# Colab: codebook k=100 và k=300 đều khác, kéo theo minsup, số tập đóng, accuracy). SIFT thì giống hệt.
+# Đặt False (hoặc biến môi trường APP2_RELEARN_CODEBOOK=1) để học lại k-means trên máy đang chạy.
+USE_SAVED_CODEBOOK = os.environ.get("APP2_RELEARN_CODEBOOK") != "1"
+REF_DIR = ROOT / "reference"                        # codebook_k{k}.npy, words.npz, codebook_stats.csv, SHA256SUMS.txt
 N_SAMPLE_DESC = 150_000    # số descriptor train lấy mẫu để học codebook (~48% của ~316k)
 DATA_WORDS = ROOT / "data" / "words.npz"            # từ thị giác của mọi keypoint, k100 / k300 (bước 3)
 

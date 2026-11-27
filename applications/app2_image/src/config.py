@@ -22,11 +22,17 @@ SIFT_NFEATURES = 500
 CALTECH_URL = "https://data.caltech.edu/records/mzrjq-6wc02/files/caltech-101.zip?download=1"
 
 K_LIST = [100, 300]        # kích thước codebook thử
-# Dùng codebook + từ thị giác đã lưu trong reference/ (bản đã dùng cho báo cáo) thay vì học lại k-means.
-# Lý do: k-means cho kết quả khác nhau giữa các nền tảng dù cùng phiên bản thư viện và cùng seed (Windows vs Linux/
-# Colab: codebook k=100 và k=300 đều khác, kéo theo minsup, số tập đóng, accuracy). SIFT thì giống hệt.
-# Đặt False (hoặc biến môi trường APP2_RELEARN_CODEBOOK=1) để học lại k-means trên máy đang chạy.
+# Đặc trưng đã lưu của lần chạy dùng cho báo cáo (máy Windows), thay vì tính lại trên máy đang chạy.
+# Lý do: SIFT VÀ k-means đều cho kết quả khác nhau giữa các nền tảng dù cùng code, seed và phiên bản thư viện.
+# Đo trên Colab (Linux, Python 3.12, NumPy 1.26.4, OpenCV 4.10.0, scikit-learn 1.5.2): số keypoint mỗi ảnh giống hệt
+# nhưng nội dung keypoint khác (gán từ đã lưu cho SIFT tính lại chỉ trùng ~30%), và codebook học lại cũng khác.
+# Cả hai vẫn được TÍNH LẠI để kiểm chứng (bước 2 và ô 3b) nhưng không dùng cho các bước sau.
+# Biến môi trường APP2_RECOMPUTE_SIFT=1 / APP2_RELEARN_CODEBOOK=1 để dùng kết quả tính lại trên máy đang chạy.
+USE_SAVED_SIFT = os.environ.get("APP2_RECOMPUTE_SIFT") != "1"
 USE_SAVED_CODEBOOK = os.environ.get("APP2_RELEARN_CODEBOOK") != "1"
+HF_DATASET = "nnkhlh376/fpclose-app2-caltech"       # dữ liệu trung gian trên Hugging Face
+HF_REVISION = "48ff7f3dc503bfc3d2682163e1a4119c76d15980"  # cố định commit đã upload
+SIFT_SHA256 = "3c72439d6ba72629e44518145fd2255420f5e4dfe931ef5b8590ca06d4b92694"  # features/sift.npz
 REF_DIR = ROOT / "reference"                        # codebook_k{k}.npy, words.npz, codebook_stats.csv, SHA256SUMS.txt
 N_SAMPLE_DESC = 150_000    # số descriptor train lấy mẫu để học codebook (~48% của ~316k)
 DATA_WORDS = ROOT / "data" / "words.npz"            # từ thị giác của mọi keypoint, k100 / k300 (bước 3)

@@ -32,15 +32,21 @@ từng tham số có trong các ô markdown của notebook.
 ## Cài đặt và chạy
 
 **Môi trường:** kết quả trong báo cáo được tạo bằng **Python 3.12** và đúng các phiên bản trong `requirements.txt`
-(NumPy 1.26.4, scikit-learn 1.5.2, OpenCV 4.10.0). Đã thử Python 3.13 + NumPy 2.4.6: SIFT và codebook k = 100 giống
-hệt, nhưng codebook k = 300 khác, kéo theo mọi kết quả k = 300. Số luồng CPU không ảnh hưởng.
+(NumPy 1.26.4, scikit-learn 1.5.2, OpenCV 4.10.0). Trên cùng máy Windows, đã thử Python 3.13 + NumPy 2.4.6: SIFT và
+codebook k = 100 giống hệt, nhưng codebook k = 300 khác. Số luồng CPU không ảnh hưởng.
 
-**Codebook đã lưu (mặc định):** ngay cả với cùng Python 3.12 và cùng phiên bản thư viện, k-means trên Colab (Linux)
-cho codebook k = 100 và k = 300 khác máy Windows dùng làm báo cáo (SIFT thì giống hệt): thứ tự cộng số thực khác nhau
-theo hệ điều hành/CPU. Vì vậy bước 3 mặc định **dùng codebook và từ thị giác đã lưu trong `reference/`** (bản dùng cho
-báo cáo, kiểm tra SHA-256) thay vì học lại; các bước sau (giao dịch, FPClose, growth rate, phân loại) chạy lại bình
-thường. Học lại k-means trên máy đang chạy: đặt `APP2_RELEARN_CODEBOOK=1`. Khi học lại trên Colab, số liệu đổi
-(minsup k = 300 thành 20%, số tập đóng, accuracy lệch 0,3–3 điểm) nhưng kết luận định tính giữ nguyên.
+**Đặc trưng đã lưu (mặc định):** ngay cả với cùng Python 3.12 và cùng phiên bản thư viện, chạy trên Colab (Linux) cho
+**SIFT khác** (số keypoint mỗi ảnh giống hệt nhưng nội dung keypoint khác: gán từ đã lưu cho SIFT tính lại chỉ trùng
+~30%) và **codebook k-means khác** (inertia lệch < 0,6% nhưng ARI giữa hai cách chia cụm chỉ 0,31–0,37) so với máy
+Windows dùng làm báo cáo: thứ tự và tập lệnh tính số thực khác nhau theo hệ điều hành/CPU. Vì vậy mặc định:
+- bước 2 dùng **SIFT đã lưu** (`features/sift.npz` trên Hugging Face, commit cố định, kiểm tra SHA-256);
+- bước 3 dùng **codebook và từ thị giác đã lưu** trong `reference/` (kiểm tra SHA-256).
+
+Cả hai vẫn được **tính lại trên máy đang chạy để kiểm chứng** (bảng `out/sift_check.csv` và ô 3b, `out/kmeans_check.csv`)
+nhưng không dùng cho các bước sau. Các bước sau (giao dịch, FPClose, growth rate, vẽ, phân loại) chạy lại bình thường.
+Dùng kết quả tính lại trên máy đang chạy: đặt `APP2_RECOMPUTE_SIFT=1` và/hoặc `APP2_RELEARN_CODEBOOK=1`. Lần chạy lại
+toàn bộ trên Colab (tính lại cả hai) cho số liệu khác (minsup k = 300 thành 20%, số tập đóng, accuracy lệch 0,3–3 điểm)
+nhưng kết luận định tính giữ nguyên.
 
 **Trên Colab:** mở link Colab ở trên, chọn *Runtime → Change runtime type → Python 3, CPU* (không cần GPU), rồi
 *Runtime → Run all* (khoảng 15–25 phút). Colab dùng Python 3.13, nên ô thiết lập tạo một môi trường **Python 3.12

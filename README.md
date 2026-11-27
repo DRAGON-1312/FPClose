@@ -87,6 +87,7 @@ FPClose/
 | `scripts/benchmark.jl` | Đo thời gian và bộ nhớ đỉnh khi bật/tắt từng tối ưu, xuất CSV vào `out/` (xem mục "Đo hiệu năng"). |
 | `tools/`, `out/` | Không commit (nằm trong `.gitignore`): `tools/` chứa `spmf.jar` và FIMI, `out/` chứa output tạm. Kết quả cần giữ được chuyển vào `results/`. |
 | `notebooks/demo.ipynb` | Notebook demo (để chạy trên Google Colab). |
+| `applications/app2_image/` | Ứng dụng 2: khai thác mẫu trực quan trên ảnh Caltech-101 (notebook riêng, script `src/`, hướng dẫn trong `README.md` của thư mục). |
 | `docs/` | Tài liệu, báo cáo (`docs/Report.pdf` là file PDF duy nhất được commit). `docs/DEVIATIONS.md` liệt kê mọi chỗ code khác hoặc bổ sung so với bài báo, kèm lý do. |
 | `demo.jl` | Script chạy thuật toán từ dòng lệnh. |
 | `data/README.md` | Nguồn, SHA-256, thống kê và cách tái tạo 9 dataset benchmark; bản sao công khai trên Hugging Face. |
@@ -305,3 +306,5 @@ Kết quả (đã kiểm bằng `demo.jl` và bằng test `Ví dụ chính thứ
 
 - Google Colab: TODO
 - Dataset (Hugging Face): https://huggingface.co/datasets/hytrang/fpclose-fim-benchmarks (9 dataset benchmark đã chuẩn hóa; nguồn, SHA-256 và thống kê ở `data/README.md`)
+- Ứng dụng 2 (ảnh), Colab: https://colab.research.google.com/github/DRAGON-1312/FPClose/blob/main/applications/app2_image/app2_image.ipynb
+- Ứng dụng 2 (ảnh), dữ liệu trung gian (Hugging Face): https://huggingface.co/datasets/nnkhlh376/fpclose-app2-caltech

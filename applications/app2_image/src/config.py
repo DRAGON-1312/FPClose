@@ -22,6 +22,18 @@ SIFT_NFEATURES = 500
 CALTECH_URL = "https://data.caltech.edu/records/mzrjq-6wc02/files/caltech-101.zip?download=1"
 
 K_LIST = [100, 300]        # kích thước codebook thử
+# Đặc trưng đã lưu của lần chạy dùng cho báo cáo (máy Windows), thay vì tính lại trên máy đang chạy.
+# Lý do: SIFT VÀ k-means đều cho kết quả khác nhau giữa các nền tảng dù cùng code, seed và phiên bản thư viện.
+# Đo trên Colab (Linux, Python 3.12, NumPy 1.26.4, OpenCV 4.10.0, scikit-learn 1.5.2): số keypoint mỗi ảnh giống hệt
+# nhưng nội dung keypoint khác (gán từ đã lưu cho SIFT tính lại chỉ trùng ~30%), và codebook học lại cũng khác.
+# Cả hai vẫn được TÍNH LẠI để kiểm chứng (bước 2 và ô 3b) nhưng không dùng cho các bước sau.
+# Biến môi trường APP2_RECOMPUTE_SIFT=1 / APP2_RELEARN_CODEBOOK=1 để dùng kết quả tính lại trên máy đang chạy.
+USE_SAVED_SIFT = os.environ.get("APP2_RECOMPUTE_SIFT") != "1"
+USE_SAVED_CODEBOOK = os.environ.get("APP2_RELEARN_CODEBOOK") != "1"
+HF_DATASET = "nnkhlh376/fpclose-app2-caltech"       # dữ liệu trung gian trên Hugging Face
+HF_REVISION = "48ff7f3dc503bfc3d2682163e1a4119c76d15980"  # cố định commit đã upload
+SIFT_SHA256 = "3c72439d6ba72629e44518145fd2255420f5e4dfe931ef5b8590ca06d4b92694"  # features/sift.npz
+REF_DIR = ROOT / "reference"                        # codebook_k{k}.npy, words.npz, codebook_stats.csv, SHA256SUMS.txt
 N_SAMPLE_DESC = 150_000    # số descriptor train lấy mẫu để học codebook (~48% của ~316k)
 DATA_WORDS = ROOT / "data" / "words.npz"            # từ thị giác của mọi keypoint, k100 / k300 (bước 3)
 
@@ -85,8 +97,16 @@ def file_sig(path) -> str:
     return h.hexdigest()
 
 
+def lib_versions() -> dict:
+    """Phiên bản các thư viện ảnh hưởng tới kết quả (SIFT, k-means, lấy mẫu, phân loại): đổi thì các bước chạy lại."""
+    import cv2, numpy, pandas, scipy, sklearn
+    return {"opencv": cv2.__version__, "numpy": numpy.__version__, "pandas": pandas.__version__,
+            "scipy": scipy.__version__, "scikit-learn": sklearn.__version__}
+
+
 def _step_record(inputs, params) -> dict:
-    rec = {"params": params, "inputs": {Path(os.path.relpath(p, REPO)).as_posix(): file_sig(p) for p in inputs}}
+    rec = {"params": params, "libs": lib_versions(),
+           "inputs": {Path(os.path.relpath(p, REPO)).as_posix(): file_sig(p) for p in inputs}}
     return json.loads(json.dumps(rec, sort_keys=True, default=str))   # chuẩn hóa (tuple -> list, khóa -> str)
 
 
@@ -116,3 +136,10 @@ def clear_step(name: str) -> None:
     """Gọi NGAY khi bắt đầu chạy (kể cả --force): xóa dấu hoàn tất cũ, để nếu lần chạy này thất bại giữa chừng
     thì lần sau không bỏ qua bước với output dở dang."""
     (STEP_DIR / f"{name}.json").unlink(missing_ok=True)
+
+
+def env_info() -> dict:
+    """Môi trường chạy các bước: in ra ở notebook và ghi vào gói kết quả để đối chiếu giữa các máy."""
+    import platform
+    import sys
+    return {"python": sys.version.split()[0], "platform": platform.platform(), **lib_versions()}

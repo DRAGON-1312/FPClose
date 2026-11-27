@@ -32,6 +32,11 @@ trong đó 315\,643 thuộc train. Nhóm lấy khoảng 150\,000 descriptor trai
 để giảm sự áp đảo của ảnh nhiều keypoint, rồi học codebook bằng MiniBatchKMeans với $k\in\{100,300\}$,
 \texttt{n\_init=3}, \texttt{batch\_size=4096}, seed 42. Mỗi descriptor được gán vào tâm gần nhất theo khoảng
 cách Euclid. Codebook chỉ học trên train; test dùng lại các tâm đã học.
+SIFT và k-means phụ thuộc nền tảng: cùng mã nguồn, seed và phiên bản thư viện, chạy trên Colab (Linux) cho cùng
+vị trí keypoint với máy Windows dùng cho báo cáo nhưng descriptor khác (chỉ 28,8\% keypoint trùng descriptor); với
+cùng đầu vào, codebook $k=100$ trùng từng byte còn $k=300$ khác (ARI 0,33, inertia lệch +0,07\%). Vì vậy notebook dùng lại đặc trưng SIFT, codebook
+và phép gán từ đã lưu của lần chạy chính (kiểm tra SHA-256) để tái lập đúng số liệu; SIFT và k-means vẫn được tính
+lại trên máy đang chạy trong các ô kiểm chứng để so với bản đã lưu.
 
 Gọi $n_i(w)$ là số keypoint của ảnh $i$ được gán vào từ $w\in\{0,\ldots,k-1\}$. Giao dịch của ảnh là
 \begin{equation}
@@ -180,5 +185,9 @@ Kết quả chỉ dựa trên một lần chia train/test. Khoảng tin cậy ac
 do đổi tập huấn luyện và không thay thế phép so sánh ghép cặp giữa các mô hình. Phép đo vị trí chỉ xét
 tâm keypoint, trong khi vùng descriptor có thể cắt qua contour. Ngoài ra, resize chủ yếu phóng to ảnh,
 đặc biệt Leopards khoảng 2,1 lần; khác biệt độ phân giải theo lớp có thể ảnh hưởng visual words.
+Tính lại SIFT và học lại k-means trên Colab cho số liệu khác: minsup chọn cho $k=300$ là 20\% thay vì 25\%; ở $k=100$ quy tắc chọn
+minsup không đạt (airplanes chỉ có 42 tập ở 55\%, còn ở 50\% Leopards vượt giới hạn 300 giây); số tập đóng chênh
+đáng kể và accuracy lệch 0,3--3 điểm phần trăm. Các kết luận định tính (vị trí mẫu theo lớp, B thấp hơn A, C xấp xỉ
+A) không đổi; các con số cụ thể gắn với codebook đã chọn.
 Trong phạm vi khảo sát, đóng góp rõ nhất của mẫu là hỗ trợ phân tích các tổ hợp đặc trưng và chỉ ra
 sự hiện diện của thông tin nền/biên ảnh mà một con số accuracy không thể diễn tả.

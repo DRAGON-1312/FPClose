@@ -5,14 +5,174 @@
 \section{\texorpdfstring{Ứng dụng thực tế}{CHƯƠNG 3: ỨNG DỤNG THỰC TẾ}}
 \label{sec:applications}
 
-\todo{Giới thiệu hai ứng dụng đã chọn và cách biến đổi dữ liệu ban đầu thành giao dịch cho phù hợp với FPClose.}
+Chương này áp dụng cài đặt FPClose của nhóm vào hai bài toán trên dữ liệu thực, mỗi bài toán có một cách biến đổi dữ
+liệu ban đầu thành giao dịch riêng. Ở Ứng dụng 1 (Mục~\ref{sec:app1}), mỗi hóa đơn của một cửa hàng bán lẻ trực tuyến
+là một giao dịch và mỗi mã sản phẩm (StockCode) là một item; các tập phổ biến được dùng để sinh luật kết hợp. Ở Ứng
+dụng 2 (Mục~\ref{sec:app2}), mỗi ảnh là một giao dịch và mỗi từ thị giác (\textit{visual word}, cụm đặc trưng cục bộ
+của ảnh) là một item. Trong cả hai ứng dụng, các thư viện khác chỉ được dùng để tạo giao dịch định dạng SPMF và trình
+bày kết quả; mọi tập phổ biến đóng đều được khai thác bằng FPClose của nhóm, không dùng thư viện khai thác tập phổ biến
+nào khác.
 
 \subsection{Ứng dụng 1}
 \label{sec:app1}
-\todo{Chọn một hướng: \textbf{phân tích giỏ hàng} (Retail, Groceries, \ldots: sinh luật kết hợp với minsup, minconf,
-top-10 luật theo lift và ý nghĩa kinh doanh) hoặc \textbf{phát hiện mẫu trong log hệ thống} (tổ hợp sự kiện xuất hiện
-cùng nhau, khả năng phát hiện lỗi hay hành vi bất thường). Trình bày dữ liệu, cách tạo giao dịch, tham số, kết quả,
-diễn giải.}
+\subsubsection{Bài toán và dữ liệu}
+Ứng dụng tìm các nhóm sản phẩm thường được mua cùng nhau trong một cửa hàng bán lẻ trực tuyến, sinh luật kết hợp
+$A \rightarrow B$ từ các nhóm đó và diễn giải mười luật có lift cao nhất. Dữ liệu là UCI Online Retail~\cite{uci_retail}
+(giấy phép CC BY 4.0), gồm 541\,909 dòng của một cửa hàng trực tuyến tại Vương quốc Anh trong giai đoạn 12/2010--12/2011.
+Mỗi dòng là một sản phẩm trong một hóa đơn, với mã hóa đơn (InvoiceNo), mã sản phẩm (StockCode), mô tả, số lượng, thời
+điểm, đơn giá, mã khách hàng (CustomerID) và quốc gia. File gốc được kiểm tra mã băm SHA-256 trước khi xử lý để mọi lần
+chạy dùng cùng một phiên bản dữ liệu. Toàn bộ quy trình nằm trong \path{notebooks/application_01.ipynb} và
+\path{applications/application_01/market_basket.py}.
+
+\subsubsection{Biến đổi thành giao dịch}
+Mỗi giao dịch là một hóa đơn và mỗi item là một StockCode. Các bước làm sạch được áp dụng theo thứ tự cố định, bước sau
+trên kết quả của bước trước: (1) bỏ dòng thiếu InvoiceNo hoặc StockCode (không có dòng nào); (2) bỏ 9\,288 dòng của
+3\,836 hóa đơn hủy (InvoiceNo bắt đầu bằng ``C''); (3) bỏ 1\,336 dòng có số lượng không dương; (4) bỏ 1\,181 dòng có
+đơn giá không dương; (5) bỏ dòng thiếu mô tả (không còn dòng nào, vì cả 1\,454 dòng thiếu mô tả đã bị loại ở các bước
+trước); (6) bỏ 2\,379 dòng thuộc 32 StockCode lệch khỏi mẫu mã sản phẩm thông thường (năm chữ số, có thể kèm tối đa
+hai chữ cái). Các mã này gồm hai loại. Loại thứ nhất là mã thật sự không phải hàng hóa: phí vận chuyển (POST, DOT, C2),
+điều chỉnh kế toán và phí (M, D, B, BANK CHARGES, AMAZONFEE, CRUK), hàng mẫu (S) và phiếu quà tặng (GIFT\_*); chúng
+được bỏ vì không biểu diễn sản phẩm được mua. Loại thứ hai là hàng hóa mang mã đặc biệt: mã của kênh bán riêng (DCGS*,
+một số có mô tả như túi tiệc, vòng cổ cho chó) và PADS (miếng lót đệm). Nhóm bỏ cả loại này để giữ item là mã sản phẩm
+thông thường; quyết định này không ảnh hưởng tới kết quả, vì mỗi mã chỉ có trong không quá 13 hóa đơn, ít hơn ngưỡng
+thấp nhất được khảo sát (40 hóa đơn), nên không thể thuộc tập phổ biến nào, và việc bỏ một mã không làm đổi support tuyệt
+đối của các itemset không chứa mã đó. Sau làm sạch còn 527\,725 dòng (97,4\%).
+
+Trong 541\,909 dòng gốc, 135\,080 dòng (24,9\%) thiếu CustomerID; sau làm sạch còn 131\,388 trong 527\,725 dòng (cũng
+24,9\%). Các dòng này được giữ lại, vì giao dịch được xác định theo InvoiceNo chứ không theo khách hàng. Mỗi giao dịch là \emph{tập} các StockCode phân biệt của một hóa đơn: số lượng không được dùng và 10\,471 dòng trùng
+mã trong cùng hóa đơn được gộp, đúng với dạng đầu vào của FPClose. Hóa đơn chỉ có một sản phẩm vẫn được giữ (7,59\% số
+giao dịch). Kết quả là 19\,773 giao dịch trên 3\,791 item; con số này nhỏ hơn 22\,064 hóa đơn không bị hủy vì 2\,291
+hóa đơn chỉ gồm các dòng đã bị loại. Mỗi StockCode được ánh xạ sang một số nguyên và giao dịch được ghi theo định dạng
+SPMF, kèm bảng ánh xạ để dịch kết quả về tên sản phẩm.
+
+Độ dài giỏ hàng có trung bình 26,2, trung vị 15 và lớn nhất 1\,106 sản phẩm. Phân bố lệch phải: 236 hóa đơn (1,2\%) có
+từ 200 sản phẩm và 49 hóa đơn (0,25\%) có từ 500 sản phẩm trở lên. Các hóa đơn rất dài này nhiều khả năng là đơn bán
+sỉ, nhưng dữ liệu không ghi loại khách hàng nên chúng được giữ lại và ảnh hưởng của chúng được đánh giá riêng. Mật độ
+(độ dài trung bình chia cho số item) là 0,69\%; theo Bảng~\ref{tab:datasets}, giá trị này nằm trong khoảng mật độ của
+các CSDL thưa ở Chương~2 (0,020--4,204\%), thấp hơn T10I4D100K (1,161\%) nhưng cao hơn retail (0,063\%) và kosarak
+(0,020\%).
+
+\begin{table}[!t]
+\centering
+\caption{Top-10 luật theo lift ở minsup 1\%, minconf 0,6. Mọi sản phẩm thuộc dòng que cắm cây gia vị HERB MARKER,
+ghi theo tên cây. Support tính theo \% số giao dịch.}
+\label{tab:app1-top10}
+\footnotesize\setlength{\tabcolsep}{4pt}
+\begin{tabular}{rllrrr}\hline
+\# & Vế trái & Vế phải & Supp. (\%) & Conf. & Lift\\\hline
+1 & Thyme & Rosemary + Parsley & 1{,}03 & 0{,}86 & 78{,}8\\
+2 & Rosemary + Parsley & Thyme & 1{,}03 & 0{,}94 & 78{,}8\\
+3 & Thyme + Parsley & Rosemary & 1{,}03 & 0{,}95 & 78{,}5\\
+4 & Rosemary & Thyme + Parsley & 1{,}03 & 0{,}85 & 78{,}5\\
+5 & Thyme + Basil & Rosemary & 1{,}01 & 0{,}95 & 78{,}5\\
+6 & Rosemary & Thyme + Basil & 1{,}01 & 0{,}83 & 78{,}5\\
+7 & Rosemary + Basil & Thyme & 1{,}01 & 0{,}93 & 78{,}0\\
+8 & Thyme & Rosemary + Basil & 1{,}01 & 0{,}84 & 78{,}0\\
+9 & Thyme & Rosemary & 1{,}12 & 0{,}93 & 76{,}8\\
+10 & Rosemary & Thyme & 1{,}12 & 0{,}92 & 76{,}8\\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table*}[!t]
+\centering
+\caption{Top-10 luật đa dạng ở minsup 1\%, minconf 0,6: các luật không có sản phẩm chung, chọn theo thứ tự xếp hạng của
+toàn bộ 574 luật. Hạng là vị trí trong toàn bộ luật. Tên sản phẩm rút gọn thành ``dòng sản phẩm: biến thể'', phần biến
+thể giữ nguyên tiếng Anh (tên đầy đủ và StockCode có trong \texttt{top10\_rules\_diverse.csv}). Cột cuối là lift khi bỏ 236
+hóa đơn có từ 200 sản phẩm trở lên; ``không đạt'' nghĩa là luật không còn đạt hai ngưỡng.}
+\label{tab:app1-diverse}
+\footnotesize
+\begin{tabular}{rlrrrr}\hline
+Hạng & Luật & Supp. (\%) & Conf. & Lift & Lift khi bỏ hóa đơn $\geq 200$ sản phẩm\\\hline
+1 & Herb Marker: Thyme $\rightarrow$ Rosemary + Parsley & 1{,}03 & 0{,}86 & 78{,}8 & không đạt\\
+31 & Herb Marker: Mint $\rightarrow$ Basil & 1{,}05 & 0{,}87 & 70{,}8 & không đạt\\
+33 & Regency đĩa trà: Pink $\rightarrow$ Roses + Green & 1{,}29 & 0{,}84 & 51{,}8 & 63{,}4\\
+40 & Trang trí gỗ: Tree $\rightarrow$ Stocking & 1{,}11 & 0{,}75 & 46{,}3 & không đạt\\
+42 & Regency: Sugar Bowl Green $\rightarrow$ Milk Jug Pink & 1{,}23 & 0{,}75 & 45{,}4 & 52{,}4\\
+44 & Poppy's Playhouse: Livingroom $\rightarrow$ Bedroom + Kitchen & 1{,}13 & 0{,}68 & 43{,}1 & 49{,}4\\
+46 & Hũ mứt: Green Lid $\rightarrow$ Pink Lid & 1{,}15 & 0{,}74 & 42{,}9 & không đạt\\
+50 & Cốc chấm bi: Pink $\rightarrow$ Blue & 1{,}05 & 0{,}68 & 41{,}2 & 46{,}6\\
+52 & Dao nĩa trẻ em: Dolly Girl $\rightarrow$ Spaceboy & 1{,}15 & 0{,}76 & 41{,}0 & 43{,}6\\
+61 & Bát chấm bi: Blue $\rightarrow$ Pink & 1{,}05 & 0{,}65 & 38{,}4 & 42{,}9\\
+\hline
+\end{tabular}
+\end{table*}
+
+\subsubsection{Khai thác và chọn tham số}
+Mọi kết quả được sinh bằng \texttt{demo.jl} của nhóm theo ba bước: FPClose khai thác các tập phổ biến đóng, bước khôi
+phục suy ra mọi tập phổ biến theo \eqref{eq:recovery}, và bước sinh luật tách mỗi tập phổ biến $Z = A \cup B$
+(Mục~\ref{sec:basic}). Một luật được giữ khi $\mathrm{support}(A \cup B) \geq \mathit{minsup}$, nên $A$, tập con của
+$Z$, cũng phổ biến, và khi confidence đạt minconf; support, confidence và lift được tính theo các công thức ở
+Mục~\ref{sec:basic}.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{figures/app1_minsup_survey.png}
+\caption{Số tập phổ biến đóng, số mọi tập phổ biến (trục trái, thang log) và tỷ lệ nén
+$n_{\mathrm{all}}/n_{\mathrm{closed}}$ (trục phải) theo minsup trên UCI Online Retail. Hai đường số tập trùng nhau từ
+3\% đến 0,5\%; vạch chấm đánh dấu minsup được chọn.}
+\label{fig:app1-minsup}
+\end{figure}
+
+Vì sản phẩm phổ biến nhất chỉ có support 11,5\%, minsup được khảo sát trong khoảng 3\% đến 0,2\%
+(Hình~\ref{fig:app1-minsup}). Từ 3\% xuống 0,5\%, số tập đóng tăng từ 143 lên 17\,498 và luôn bằng số tập phổ biến:
+trên dữ liệu thưa này, hầu như không có tập nào mà mọi hóa đơn chứa nó đều chứa thêm một sản phẩm chung khác. Tỷ lệ nén
+chỉ vượt 1 ở 0,3\% (1,03) và đạt 2,16 ở 0,2\%. Từ 0,3\% xuống 0,2\%, số tập đóng tăng khoảng 21 lần, từ 176\,102 lên
+3\,771\,107. Để kiểm tra ảnh hưởng của hóa đơn rất dài, nhóm chạy lại sau khi bỏ hóa đơn theo hai ngưỡng độ dài. Ngưỡng
+500 sản phẩm chỉ bỏ 49 hóa đơn (0,25\% số giao dịch), nên dùng để hỏi liệu một nhóm rất nhỏ có đủ gây ra bước nhảy hay
+không: số tập đóng ở 0,2\% giảm còn 424\,270, tức khoảng 88,7\%. Số tập đóng ở mức này vì vậy rất nhạy với nhóm hóa
+đơn cực dài, dù kết quả không cho thấy mọi tập bị mất chỉ nằm trong các hóa đơn đó, vì việc bỏ hóa đơn cũng làm thay
+đổi tập nào là tập đóng. Ngưỡng 200 sản phẩm bỏ 236 hóa đơn (1,2\%) và làm số tập đóng ở 1\% giảm từ 2\,026 xuống
+1\,267, so với 1\,668 khi dùng ngưỡng 500; vì đây là phép thử chặt hơn trong hai ngưỡng, nó được dùng để kiểm tra độ ổn
+định của luật trong phần kết quả luật bên dưới. Nhóm chọn minsup 1\%
+để sinh luật, vì mỗi mẫu dựa trên ít nhất 198 hóa đơn và số tập phổ biến vừa phải (2\,026, trong đó 1\,197 tập có từ hai
+sản phẩm); các mức dưới 1\% chỉ dùng để khảo sát. Ngưỡng confidence được đặt là $\mathit{minconf} = 0{,}6$.
+
+Ở minsup 1\% (198 giao dịch), FPClose tìm được 2\,026 tập đóng, đúng bằng số tập phổ biến sau khôi phục, và bước sinh
+luật cho 574 luật. Như vậy, ở cấu hình này biểu diễn tập đóng \emph{không đem lại lợi ích nén} (tỷ lệ nén 1,0); lợi ích
+đó chỉ xuất hiện từ minsup 0,3\% trở xuống. Quy trình vẫn đáp ứng mục tiêu ứng dụng, vì luật được sinh từ mọi tập phổ
+biến khôi phục đầy đủ từ tập đóng. Thời gian khai thác khoảng 0,4--0,5\,s, khoảng 3\,s nếu tính cả thời gian khởi động Julia. Để kiểm
+tra độc lập với FPClose, support, confidence và lift của cả 574 luật được tính lại bằng phép đếm trực tiếp trên tập giao
+dịch; 574/574 luật khớp, với sai số dưới $10^{-9}$. Phép kiểm này xác nhận các luật được sinh ra là đúng, nhưng không
+chứng minh tập luật là đầy đủ; tính đầy đủ dựa trên việc tập phổ biến đã được đối chiếu với SPMF
+(Mục~\ref{sec:correctness}) và bộ kiểm thử của bước sinh luật (Mục~\ref{sec:tests}).
+
+\subsubsection{Kết quả luật}
+Bảng~\ref{tab:app1-top10} trình bày mười luật có lift cao nhất. Cả mười luật đều thuộc bộ que cắm cây gia vị HERB MARKER,
+với lift từ 76,8 đến 78,8 và confidence từ 0,83 đến 0,95: trong các hóa đơn chứa vế trái, tỷ lệ chứa vế phải cao gấp gần
+80 lần tỷ lệ chung. Support chỉ từ 1,01\% đến 1,12\% (200--221 hóa đơn), sát ngưỡng minsup. Các luật đi theo cặp đối
+xứng có cùng lift, vì $\mathrm{lift}(A \rightarrow B) = \mathrm{lift}(B \rightarrow A)$; tám luật đầu được tách từ hai
+tập ba sản phẩm $\{$Thyme, Rosemary, Parsley$\}$ và $\{$Thyme, Rosemary, Basil$\}$. Khi bỏ 236 hóa đơn có từ 200 sản
+phẩm trở lên (1,2\% số giao dịch), số luật ở minsup 1\% giảm từ 574 xuống 296, và 8/10 luật của
+Bảng~\ref{tab:app1-top10} không còn đạt ngưỡng; chỉ cặp Thyme $\leftrightarrow$ Rosemary còn lại, với lift tăng từ 76,8
+lên 85,0.
+
+Vì top-10 theo lift bị một dòng sản phẩm chi phối, nhóm lập thêm Bảng~\ref{tab:app1-diverse} để bổ sung, không thay thế
+Bảng~\ref{tab:app1-top10}. Các luật được duyệt theo đúng thứ tự xếp hạng của toàn bộ 574 luật, và một luật chỉ được nhận
+khi không có sản phẩm nào của nó đã xuất hiện trong các luật đã nhận; cách lọc này chỉ chọn lại trong các luật FPClose đã
+sinh ra. Mười luật trải trên nhiều dòng sản phẩm, với lift từ 38,4 đến 78,8 và confidence từ 0,65 đến 0,87. Vì phép lọc
+chỉ bảo đảm không trùng mã sản phẩm, một số dòng xuất hiện ở hai luật (như HERB MARKER và Regency). Khi bỏ hóa đơn từ 200 sản
+phẩm, sáu luật vẫn đạt ngưỡng và có lift tăng, còn bốn luật (hai luật HERB MARKER, đồ trang trí gỗ và hũ mứt) không còn
+đạt. Ở minsup 2\%, chỉ còn 30 luật (30/30 khớp phép đếm trực tiếp), và không luật nào của Bảng~\ref{tab:app1-diverse} đạt
+ngưỡng này, vì support của chúng chỉ từ 1,03\% đến 1,29\%. Luật đứng đầu ở 2\% thuộc bộ tách trà Regency, với support
+2,74\% và lift 18,2: các luật ở ngưỡng cao hơn thuộc các bộ sưu tập bán chạy hơn và có lift thấp hơn, nhưng vẫn nối các
+biến thể của cùng một bộ sưu tập.
+
+\subsubsection{Ý nghĩa kinh doanh và giới hạn}
+Các luật nổi bật chủ yếu nối các biến thể khác màu hoặc khác mẫu của cùng một bộ sưu tập: que cắm theo loại cây, đĩa trà
+và bộ bát đường, bình sữa Regency theo màu, các phòng của bộ đồ chơi Poppy's Playhouse, cốc và bát chấm bi, dao nĩa trẻ
+em theo mẫu. Từ đó nhóm nêu một số \emph{đề xuất chưa được kiểm chứng}. Thứ nhất, khi khách chọn một biến thể, hệ thống
+có thể gợi ý các biến thể còn lại của bộ sưu tập; nên ưu tiên thử với sáu luật của Bảng~\ref{tab:app1-diverse} vẫn đạt
+ngưỡng khi bỏ hóa đơn rất dài. Thứ hai, các mẫu chỉ đạt ngưỡng nhờ hóa đơn rất dài (trọn bộ HERB MARKER, đồ trang trí gỗ,
+hũ mứt) phù hợp hơn với gói sản phẩm cho đơn hàng số lượng lớn. Thứ ba, luật có lift cao nhưng support khoảng 1\% hợp với
+gợi ý nhắm đúng khách hàng, còn luật có support cao hơn như ở minsup 2\% hợp với khuyến mãi diện rộng. Hiệu quả của các
+đề xuất này cần được đo bằng thử nghiệm A/B trước khi áp dụng.
+
+Kết quả có các giới hạn sau. Luật chỉ phản ánh sự đồng xuất hiện trong cùng hóa đơn, không phải quan hệ nhân quả hay
+thứ tự mua. Dữ liệu không ghi loại khách hàng, nên độ dài hóa đơn chỉ là dấu hiệu gián tiếp của đơn bán sỉ. Mỗi biến thể
+là một StockCode riêng, nên luật chủ yếu nối các biến thể cùng dòng và ít cho thấy quan hệ giữa các dòng sản phẩm khác
+nhau. Số lượng, đơn giá và thời gian mua chưa được dùng, nên luật chưa phản ánh doanh thu hay mùa vụ; dữ liệu cũng chỉ
+thuộc một cửa hàng tại Vương quốc Anh trong giai đoạn 2010--2011.
 
 \subsection{Ứng dụng 2: Khai thác mẫu trực quan trên ảnh}
 \label{sec:app2}

@@ -6,13 +6,14 @@ Trình bày đầy đủ ở Mục 3.2 của báo cáo (`docs/`).
 
 | | Liên kết |
 |---|---|
-| Notebook trên Colab | https://colab.research.google.com/github/DRAGON-1312/FPClose/blob/main/applications/app2_image/app2_image.ipynb |
+| Notebook (`notebooks/application_02.ipynb`) trên Colab | https://colab.research.google.com/github/DRAGON-1312/FPClose/blob/main/notebooks/application_02.ipynb |
 | Dữ liệu trung gian (Hugging Face) | https://huggingface.co/datasets/nnkhlh376/fpclose-app2-caltech |
 | Dữ liệu gốc | Caltech-101, CaltechDATA, doi: 10.22002/D1.20086 (CC BY 4.0), notebook tự tải |
 
 ## Quy trình
 
-Notebook `app2_image.ipynb` chỉ điều phối: mỗi bước là một script trong `src/`, ghi kết quả trung gian ra `data/`
+Notebook `notebooks/application_02.ipynb` (đặt cùng thư mục với notebook các phần khác) chỉ điều phối: mỗi bước là
+một script trong `src/` của thư mục này, ghi kết quả trung gian ra `data/`
 và `out/` (không commit). Mọi tham số nằm ở `src/config.py`, mọi bước ngẫu nhiên dùng seed 42.
 
 | Bước | Script | Việc | Kết quả chính |
@@ -73,6 +74,9 @@ for s in s01_prepare_data s03_sift_extract s04_codebook s05_transactions s06_min
   python src/$s.py
 done
 ```
+
+Hoặc mở `notebooks/application_02.ipynb` (từ gốc repo) với kernel `applications/app2_image/.venv` và chạy hết; notebook tự
+tìm thư mục `applications/app2_image/` và chạy các script trên.
 
 Mỗi bước tự bỏ qua khi đã chạy với đúng tham số và đúng dữ liệu đầu vào (ghi nhận ở `out/_steps/`); đổi tham số
 hoặc đầu vào thì bước đó và các bước sau tự chạy lại. Thêm `--force` để buộc chạy lại một bước.

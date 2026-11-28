@@ -16,7 +16,7 @@ size_categories:
 
 Dữ liệu trung gian của **Ứng dụng 2: khai thác mẫu trực quan trên ảnh** trong đồ án cài đặt thuật toán FPClose
 (môn Khai thác dữ liệu, Khoa CNTT, ĐH KHTN – ĐHQG-HCM). Code sinh ra dữ liệu: repo `DRAGON-1312/FPClose`, thư mục
-`applications/app2_image/`, commit `{COMMIT}`. Notebook chạy lại toàn bộ: `applications/app2_image/app2_image.ipynb`.
+`applications/app2_image/`, commit `{COMMIT}`. Notebook chạy lại toàn bộ: `notebooks/application_02.ipynb`.
 
 ## Nguồn
 Caltech-101 (Fei-Fei, Fergus, Perona), CaltechDATA, doi: 10.22002/D1.20086, giấy phép CC BY 4.0.

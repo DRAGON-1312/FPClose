@@ -2,21 +2,23 @@
 
 Nguồn: `results/runtime/grid_runtime.csv`. Thời gian: trung vị các lần chạy OK (thường 3 lần), cột `time_with_write_s` = đọc + khai thác + GHI file output cho cả hai công cụ (SPMF luôn ghi file). `t_ours_nowrite` = nhóm không tính ghi file (SPMF không tách được). Tỷ số = SPMF / ours (> 1 nghĩa là ours nhanh hơn).
 
+Phân loại từng cấu hình theo r = ours / SPMF (`t_ours_s / t_spmf_s`): r < 0,90 là **nhanh hơn**, 0,90 ≤ r ≤ 1,10 là **gần tương đương**, r > 1,10 là **chậm hơn**. Cột "Tỷ số TB nhân" là trung bình nhân của tỷ số SPMF / ours trên các mức minsup của từng dataset.
+
 ## Theo dataset
 
-| Dataset | Số mức minsup | Tỷ số TB nhân | Nhỏ nhất | Lớn nhất | Số mức ours nhanh hơn |
-|---|---:|---:|---:|---:|---:|
-| chess | 7 | 3,85 | 2,36 | 9,25 | 7 |
-| mushrooms | 7 | 2,99 | 2,04 | 5,15 | 7 |
-| retail | 6 | 1,41 | 0,79 | 2,66 | 4 |
-| T10I4D100K | 6 | 0,84 | 0,67 | 1,13 | 1 |
-| accidents | 6 | 1,54 | 1,39 | 1,68 | 6 |
-| connect | 6 | 1,97 | 1,75 | 2,59 | 6 |
-| kosarak | 6 | 1,21 | 1,02 | 1,48 | 6 |
-| pumsb_star | 6 | 2,06 | 1,77 | 2,6 | 6 |
-| T40I10D100K | 6 | 1,04 | 0,87 | 1,19 | 4 |
+| Dataset | Số mức minsup | Tỷ số TB nhân | Nhỏ nhất | Lớn nhất | Nhanh hơn | Gần tương đương | Chậm hơn |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| chess | 7 | 3,85 | 2,36 | 9,25 | 7 | 0 | 0 |
+| mushrooms | 7 | 2,99 | 2,04 | 5,15 | 7 | 0 | 0 |
+| retail | 6 | 1,41 | 0,79 | 2,66 | 4 | 0 | 2 |
+| T10I4D100K | 6 | 0,84 | 0,67 | 1,13 | 1 | 1 | 4 |
+| accidents | 6 | 1,54 | 1,39 | 1,68 | 6 | 0 | 0 |
+| connect | 6 | 1,97 | 1,75 | 2,59 | 6 | 0 | 0 |
+| kosarak | 6 | 1,21 | 1,02 | 1,48 | 5 | 1 | 0 |
+| pumsb_star | 6 | 2,06 | 1,77 | 2,6 | 6 | 0 | 0 |
+| T40I10D100K | 6 | 1,04 | 0,87 | 1,19 | 2 | 3 | 1 |
 
-Toàn bộ 56 cấu hình: tỷ số trung bình nhân = 1,723.
+Toàn bộ 56 cấu hình: tỷ số SPMF / ours trung bình nhân = 1,723; nhanh hơn 44, gần tương đương 5, chậm hơn 7.
 
 ## Chi tiết dataset × minsup
 

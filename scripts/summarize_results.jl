@@ -160,6 +160,15 @@ end
 # speedup
 # =============================================================================
 
+"Ngưỡng phân loại theo r = t_ours / t_spmf (quy ước của Chương 2): r < 0,90 nhanh hơn, 0,90 ≤ r ≤ 1,10 gần tương đương, r > 1,10 chậm hơn."
+const SPEED_FASTER_BELOW = 0.90
+const SPEED_SLOWER_ABOVE = 1.10
+
+"Phân loại một cấu hình theo r = t_ours / t_spmf: :faster, :similar hoặc :slower (missing nếu thiếu thời gian)."
+speed_class(t_ours, t_spmf) =
+    (t_ours === missing || t_spmf === missing || t_spmf <= 0) ? missing :
+    (r = t_ours / t_spmf; r < SPEED_FASTER_BELOW ? :faster : r <= SPEED_SLOWER_ABOVE ? :similar : :slower)
+
 "Bảng thời gian ours/SPMF và tỷ số theo dataset × minsup (results/runtime/grid_runtime.csv), kèm thống kê theo dataset."
 function summarize_speedup(resdir, outdir)
     agg = load_tool_runs(joinpath(resdir, "runtime", "grid_runtime.csv"), [:dataset, :minsup_pct, :tool]; what = "runtime")
@@ -170,27 +179,38 @@ function summarize_speedup(resdir, outdir)
     st = DataFrame()
     for g in groupby(sp, :dataset; sort = false)
         r = collect(skipmissing(g.speedup_spmf_over_ours))
+        cls = collect(skipmissing(speed_class.(g.t_ours_s, g.t_spmf_s)))
         push!(st, (dataset = g[1, :dataset], n_minsup = length(r),
                    speedup_geomean = isempty(r) ? missing : round(geomean(r); digits = 2),
                    speedup_min = isempty(r) ? missing : minimum(r), speedup_max = isempty(r) ? missing : maximum(r),
-                   n_ours_faster = count(>(1), r)); promote = true)
+                   n_faster = count(==(:faster), cls), n_similar = count(==(:similar), cls),
+                   n_slower = count(==(:slower), cls)); promote = true)
     end
     allr = collect(skipmissing(sp.speedup_spmf_over_ours))
+    allcls = collect(skipmissing(speed_class.(sp.t_ours_s, sp.t_spmf_s)))
+    nf, nsim, nsl = count(==(:faster), allcls), count(==(:similar), allcls), count(==(:slower), allcls)
 
     md = "# So sánh thời gian chạy: FPClose (ours) vs SPMF\n\nNguồn: `results/runtime/grid_runtime.csv`. $TIME_NOTE\n\n" *
+         "Phân loại từng cấu hình theo r = ours / SPMF (`t_ours_s / t_spmf_s`): r < 0,90 là **nhanh hơn**, " *
+         "0,90 ≤ r ≤ 1,10 là **gần tương đương**, r > 1,10 là **chậm hơn**. Cột \"Tỷ số TB nhân\" là trung bình nhân " *
+         "của tỷ số SPMF / ours trên các mức minsup của từng dataset.\n\n" *
          "## Theo dataset\n\n" *
          md_table(st, [:dataset => "Dataset", :n_minsup => "Số mức minsup", :speedup_geomean => "Tỷ số TB nhân",
-                       :speedup_min => "Nhỏ nhất", :speedup_max => "Lớn nhất", :n_ours_faster => "Số mức ours nhanh hơn"]) *
-         "\nToàn bộ $(length(allr)) cấu hình: tỷ số trung bình nhân = $(fmt_dec(geomean(allr))).\n\n" *
+                       :speedup_min => "Nhỏ nhất", :speedup_max => "Lớn nhất", :n_faster => "Nhanh hơn",
+                       :n_similar => "Gần tương đương", :n_slower => "Chậm hơn"]) *
+         "\nToàn bộ $(length(allr)) cấu hình: tỷ số SPMF / ours trung bình nhân = $(fmt_dec(geomean(allr))); " *
+         "nhanh hơn $nf, gần tương đương $nsim, chậm hơn $nsl.\n\n" *
          "## Chi tiết dataset × minsup\n\n" *
          md_table(sp, [:dataset => "Dataset", :minsup_pct => "minsup (%)", :n_itemsets => "Số closed itemset",
                        :t_ours_s => "Ours (s)", :t_ours_nowrite_s => "Ours không ghi file (s)", :t_spmf_s => "SPMF (s)",
                        :speedup_spmf_over_ours => "SPMF / ours"])
     write_outputs(outdir, "speedup", sp, md)
     println("    $(length(allr)) cấu hình, tỷ số SPMF/ours TB nhân = $(fmt_dec(geomean(allr))), ",
-            "ours nhanh hơn ở $(count(>(1), allr))/$(length(allr))")
+            "nhanh hơn/gần tương đương/chậm hơn (r = ours/SPMF; < 0,90 / 0,90–1,10 / > 1,10) = ",
+            "$nf/$nsim/$nsl trên $(length(allcls))")
     for r in eachrow(st)
-        println("    $(rpad(r.dataset, 12)) TB nhân $(fmt_dec(r.speedup_geomean))  [$(fmt_dec(r.speedup_min)) – $(fmt_dec(r.speedup_max))]")
+        println("    $(rpad(r.dataset, 12)) TB nhân $(fmt_dec(r.speedup_geomean))  [$(fmt_dec(r.speedup_min)) – $(fmt_dec(r.speedup_max))]",
+                "  nhanh/gần/chậm $(r.n_faster)/$(r.n_similar)/$(r.n_slower)")
     end
 end
 

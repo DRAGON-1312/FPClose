@@ -304,6 +304,16 @@ Kết quả (đã kiểm bằng `demo.jl` và bằng test `Ví dụ chính thứ
 1 2 3 5 #SUP: 2
 ```
 
+## Ứng dụng (Chương 3) và thư viện Python
+
+Phần ứng dụng viết bằng Python và dùng thư viện hỗ trợ theo hướng dẫn của giảng viên, nhưng **mọi itemset và luật
+kết hợp đều do FPClose của nhóm sinh ra**; không dùng thư viện khai thác tập phổ biến (FIM) nào (mlxtend,
+efficient-apriori, ...). Thư viện nào dùng để làm gì được ghi chú ở:
+
+- Ứng dụng 1 (giỏ hàng): `notebooks/application_01.ipynb` và `applications/application_01/README.md`.
+- Ứng dụng 2 (ảnh): ô "Thư viện sử dụng" trong `notebooks/application_02.ipynb` và `applications/app2_image/README.md`
+  (cách cài: `pip install -r applications/app2_image/requirements.txt`, Python 3.12, phiên bản đã ghim).
+
 ## Liên kết
 
 - Google Colab: TODO

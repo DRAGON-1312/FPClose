@@ -311,7 +311,8 @@ kết hợp đều do FPClose của nhóm sinh ra**; không dùng thư viện kh
 efficient-apriori, ...). Thư viện nào dùng để làm gì được ghi chú ở:
 
 - Ứng dụng 1 (giỏ hàng): `notebooks/application_01.ipynb` và `applications/application_01/README.md`.
-- Ứng dụng 2 (ảnh): ô "Thư viện sử dụng" trong `notebooks/application_02.ipynb`.
+- Ứng dụng 2 (ảnh): ô "Thư viện sử dụng" trong `notebooks/application_02.ipynb` và `applications/app2_image/README.md`
+  (cách cài: `pip install -r applications/app2_image/requirements.txt`, Python 3.12, phiên bản đã ghim).
 
 ## Liên kết
 

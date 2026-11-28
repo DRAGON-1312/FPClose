@@ -8,23 +8,28 @@ Thuật toán được trình bày trong bài báo:
 > *IEEE Transactions on Knowledge and Data Engineering*, 17(10), 2005.
 > DOI: [10.1109/TKDE.2005.166](https://doi.org/10.1109/TKDE.2005.166)
 
-## Thành viên nhóm
+## Nhóm 13
 
-TODO
+| Họ tên | MSSV | Phụ trách |
+|---|---|---|
+| Cao Hoàng Long | 24127442 | Chương 1; Chương 3 (Ứng dụng 1) |
+| Hoàng Yến Trang | 24127133 | Chương 2 |
+| Nguyễn Khánh Linh | 24127197 | Chương 3 (Ứng dụng 2) |
+
+- Notebook demo (Google Colab, công khai): https://colab.research.google.com/github/DRAGON-1312/FPClose/blob/main/notebooks/demo.ipynb
+- Dữ liệu benchmark (Hugging Face): https://huggingface.co/datasets/hytrang/fpclose-fim-benchmarks
+- Báo cáo: [`docs/Report.pdf`](docs/Report.pdf)
 
 ## Cấu trúc thư mục
 
+Thư mục gốc này là thư mục nhóm (`Group_ID/`) theo cấu trúc của đề.
+
 ```
 FPClose/
-├── Project.toml
-├── Manifest.toml
-├── demo.jl
-├── scripts/
-│   ├── data_setup.jl
-│   ├── reference_check.jl
-│   ├── make_spmf_fixtures.jl
-│   ├── compare_spmf.jl
-│   └── benchmark.jl
+├── README.md
+├── Project.toml                # gói FPClose; chỉ dùng thư viện chuẩn của Julia
+├── Manifest.toml               # sinh ra khi chạy Pkg.instantiate, KHÔNG commit (.gitignore)
+├── demo.jl                     # chạy FPClose từ dòng lệnh
 ├── src/
 │   ├── FPClose.jl
 │   ├── structures.jl
@@ -36,8 +41,9 @@ FPClose/
 │       ├── fparray.jl
 │       ├── cfitree.jl
 │       └── fpclose.jl
-├── test/
+├── test/                       # đề ghi tests/; repo giữ test/ để chạy đúng lệnh `julia --project test/runtests.jl`
 │   ├── runtests.jl
+│   ├── test_reader.jl
 │   ├── test_correctness.jl
 │   ├── test_optimizations.jl
 │   ├── test_recovery.jl
@@ -55,23 +61,45 @@ FPClose/
 │   ├── scalability/            # Retail subsets (sinh ra, bị .gitignore)
 │   ├── synthetic/              # CSDL tổng hợp theo độ dài giao dịch (sinh ra, bị .gitignore)
 │   └── raw/                    # file gốc tải về (bị .gitignore)
-├── results/                    # mọi kết quả, được commit
-│   ├── reference/              # SPMF và FIMI kiểm dữ liệu (reference_check.jl)
-│   ├── correctness/            # so cài đặt của nhóm với SPMF (compare_spmf.jl)
-│   ├── optimization/           # số đo các tối ưu của Chương 1
-│   ├── pilot/                  # chạy thử lưới minsup bằng SPMF
-│   └── runtime/ memory/ scalability/ txlen/ figures/   # dành cho Chương 2
 ├── notebooks/
-│   ├── demo.ipynb
+│   ├── demo.ipynb              # notebook demo chính (Google Colab)
+│   ├── chapter2_results.ipynb  # hiển thị lại hình và bảng Chương 2 từ results/ (không đo lại)
 │   ├── application_01.ipynb    # Ứng dụng 1 (giỏ hàng)
-│   └── application_02.ipynb    # Ứng dụng 2 (ảnh), code ở applications/app2_image/
-└── docs/
-    └── DEVIATIONS.md
+│   └── application_02.ipynb    # Ứng dụng 2 (ảnh)
+├── applications/
+│   ├── application_01/         # Ứng dụng 1: market_basket.py, README.md, results/ (commit); data/, out/ không commit
+│   └── app2_image/             # Ứng dụng 2: src/, reference/, README.md, requirements.txt
+├── scripts/
+│   ├── data_setup.jl  verify_datasets.jl  reference_check.jl           # dữ liệu và công cụ tham chiếu
+│   ├── make_spmf_fixtures.jl  compare_spmf.jl                          # đối chiếu với SPMF
+│   ├── benchmark.jl  bench_reader.jl  run_benchmark_grid.jl            # đo hiệu năng
+│   ├── fptree_size.jl  sensitivity_analysis.jl                         # số liệu phụ của Chương 2
+│   ├── summarize_results.jl  plot_results.jl  make_figures.jl          # bảng và hình (không đo lại)
+│   ├── make_app2_report_figure.py                                      # hình Ứng dụng 2 cho báo cáo
+│   ├── plot/                   # môi trường Julia riêng (Project + Manifest, commit) cho plot_results, summarize_results
+│   └── plots/                  # môi trường Julia riêng (Project + Manifest, commit) cho make_figures
+├── results/                    # mọi kết quả, được commit
+│   ├── ENVIRONMENT.md          # môi trường máy đo chính (MSI); ENVIRONMENT_hyt.md: máy thứ hai
+│   ├── reference/              # SPMF và FIMI kiểm dữ liệu (reference_check.jl)
+│   ├── correctness/            # so cài đặt của nhóm với SPMF
+│   ├── optimization/           # số đo các tối ưu và bộ đọc file
+│   ├── pilot/                  # chạy thử lưới minsup bằng SPMF
+│   ├── runtime/ memory/ scalability/ txlen/ fptree/   # số đo của Chương 2
+│   ├── summary/                # bảng tổng hợp (summarize_results.jl)
+│   ├── figures/                # hình của Chương 2
+│   └── dataset_validation.csv  # thống kê kiểm tra dữ liệu (verify_datasets.jl)
+├── docs/
+│   ├── Report.pdf              # báo cáo cuối kỳ (build từ IEEE-conference-template-062824/report.tex)
+│   ├── DEVIATIONS.md
+│   └── IEEE-conference-template-062824/   # mã LaTeX của báo cáo: report.tex, chuong1–3.tex, phuluc.tex, tables/, figures/
+├── tools/                      # spmf.jar, JDK, FIMI tải về khi cần, KHÔNG commit
+└── out/                        # output tạm khi chạy, KHÔNG commit
 ```
 
 | Đường dẫn | Vai trò |
 |---|---|
-| `Project.toml`, `Manifest.toml` | Khai báo gói và cố định phiên bản phụ thuộc để tái lập môi trường (`Manifest.toml` được commit). |
+| `Project.toml` | Khai báo gói `FPClose` (yêu cầu Julia ≥ 1.9). Mã nguồn chỉ dùng thư viện chuẩn của Julia nên không khai báo gói ngoài. |
+| `Manifest.toml` (gốc) | Sinh ra khi chạy `Pkg.instantiate()`, nằm trong `.gitignore` nên không commit. Hai môi trường vẽ `scripts/plot/` và `scripts/plots/` có `Manifest.toml` riêng được commit để cố định phiên bản Plots, CSV, DataFrames. |
 | `src/FPClose.jl` | Module gốc `FPClose`, `include` các file còn lại trong `src/`. |
 | `src/structures.jl` | Định nghĩa cấu trúc dữ liệu: FP-tree và CFI-tree. |
 | `src/utils.jl` | Đọc/ghi định dạng SPMF và xử lý tham số dòng lệnh. |
@@ -88,9 +116,14 @@ FPClose/
 | `scripts/compare_spmf.jl` | Chạy SPMF và bản của nhóm trên cùng input rồi so kết quả (xem mục "So sánh với SPMF"). |
 | `scripts/benchmark.jl` | Đo thời gian và bộ nhớ đỉnh khi bật/tắt từng tối ưu, xuất CSV vào `out/` (xem mục "Đo hiệu năng"). |
 | `tools/`, `out/` | Không commit (nằm trong `.gitignore`): `tools/` chứa `spmf.jar` và FIMI, `out/` chứa output tạm. Kết quả cần giữ được chuyển vào `results/`. |
-| `notebooks/demo.ipynb` | Notebook demo (để chạy trên Google Colab). |
+| `scripts/run_benchmark_grid.jl` | Chạy lưới thực nghiệm Chương 2 (xem mục "Chạy lưới benchmark"). |
+| `scripts/verify_datasets.jl`, `bench_reader.jl`, `fptree_size.jl`, `sensitivity_analysis.jl` | Số liệu phụ của Chương 2: kiểm tra dữ liệu, so bộ đọc file, tỉ lệ kích thước FP-tree, độ nhạy theo cách tổng hợp số đo. |
+| `scripts/summarize_results.jl`, `plot_results.jl`, `make_figures.jl` | Tổng hợp bảng (`results/summary/`), vẽ hình (`results/figures/`) và sinh bảng LaTeX của báo cáo từ CSV trong `results/`, không đo lại. |
+| `notebooks/demo.ipynb` | Notebook demo chính (chạy trên Google Colab bằng *Runtime → Run all*). |
+| `notebooks/chapter2_results.ipynb` | Hiển thị lại hình và bảng Chương 2 từ `results/`, không chạy lại thực nghiệm. |
+| `applications/application_01/` | Ứng dụng 1: phân tích giỏ hàng trên UCI Online Retail (`market_basket.py`, `README.md`, kết quả trong `results/`; notebook ở `notebooks/application_01.ipynb`). |
 | `applications/app2_image/` | Ứng dụng 2: khai thác mẫu trực quan trên ảnh Caltech-101 (script `src/`, hướng dẫn trong `README.md` của thư mục; notebook ở `notebooks/application_02.ipynb`). |
-| `docs/` | Tài liệu, báo cáo (`docs/Report.pdf` là file PDF duy nhất được commit). `docs/DEVIATIONS.md` liệt kê mọi chỗ code khác hoặc bổ sung so với bài báo, kèm lý do. |
+| `docs/` | `Report.pdf` là báo cáo cuối kỳ (file PDF duy nhất trong `docs/` được commit), build từ mã LaTeX trong `IEEE-conference-template-062824/`. `DEVIATIONS.md` liệt kê mọi chỗ code khác hoặc bổ sung so với bài báo, kèm lý do. |
 | `demo.jl` | Script chạy thuật toán từ dòng lệnh. |
 | `data/README.md` | Nguồn, SHA-256, thống kê và cách tái tạo 9 dataset benchmark; bản sao công khai trên Hugging Face. |
 | `data/meta/` | Cấu hình dữ liệu dạng CSV; `scripts/data_setup.jl` và `scripts/reference_check.jl` đọc từ đây, không chép cứng. |
@@ -100,11 +133,24 @@ FPClose/
 
 ## Cài đặt môi trường
 
-Yêu cầu: Julia ≥ 1.9.
+**Chạy trên máy (local).** Yêu cầu Julia ≥ 1.9; nhóm đã kiểm với Julia 1.13.4, cùng phiên bản trên máy đo chính
+thức. Từ thư mục gốc repo:
 
 ```
-julia --project=. -e "using Pkg; Pkg.instantiate()"
+julia --project=. -e "using Pkg; Pkg.instantiate(); Pkg.precompile()"
 ```
+
+Lệnh này tạo `Manifest.toml` cục bộ (không commit) và biên dịch trước gói `FPClose`. Thuật toán, `demo.jl` và bộ
+test chỉ cần bước này. Các phần tùy chọn cần thêm:
+
+- So sánh với SPMF: Java 25 và `tools/spmf.jar` (xem mục "So sánh với SPMF").
+- Vẽ hình, tổng hợp bảng: `julia --project=scripts/plot -e "using Pkg; Pkg.instantiate()"` (cho `plot_results.jl`,
+  `summarize_results.jl`) và tương tự với `scripts/plots` (cho `make_figures.jl`).
+- Ứng dụng ở Chương 3: Python 3 (xem mục "Ứng dụng (Chương 3) và thư viện Python").
+
+**Chạy trên Google Colab.** Mở [notebook demo](https://colab.research.google.com/github/DRAGON-1312/FPClose/blob/main/notebooks/demo.ipynb)
+rồi chọn *Runtime → Run all* (kernel Python 3). Các ô đầu notebook tự cài Julia 1.13.4, clone repo, chạy
+`Pkg.instantiate()` và tải dữ liệu cần dùng.
 
 ## Chuẩn bị dữ liệu benchmark
 
@@ -136,7 +182,40 @@ julia --project=. demo.jl --minsup 40% --output-closed out/closed.txt --output-a
 
 # Thêm luật kết hợp: confidence >= 0.6, giữ 10 luật lift cao nhất
 julia --project=. demo.jl --minsup 40% --rules out/rules.txt --minconf 0.6 --top 10 data/toy/pasquier99.txt
+
+# Dữ liệu benchmark (cần tạo trước bằng scripts/data_setup.jl)
+julia --project=. demo.jl --minsup 0.8 data/benchmark/chess.txt > out/chess_0.8_closed.txt
 ```
+
+**Ví dụ đã chạy thử** (Julia 1.13.4, ngày 2026-11-28). Lệnh đầu tiên in thống kê ra stderr và tập đóng ra stdout:
+
+```
+$ julia --project=. demo.jl --minsup 0.4 data/toy/pasquier99.txt
+┌ Info: FPClose
+│   input = "data/toy/pasquier99.txt"
+│   transactions = 5
+│   minsup_count = 2
+│   closed_itemsets = 5
+└   mining_seconds = 0.0549
+3 #SUP: 4
+1 3 #SUP: 3
+2 5 #SUP: 4
+2 3 5 #SUP: 3
+1 2 3 5 #SUP: 2
+```
+
+Lệnh sinh luật báo `frequent_itemsets = 15`, `rules_generated = 37`, `rules_written = 10`; ba dòng đầu của
+`out/rules.txt`:
+
+```
+1 2 ==> 3 5 #SUP: 0.4 #CONF: 1.0 #LIFT: 1.6666666666666667 #COUNT: 2
+1 5 ==> 2 3 #SUP: 0.4 #CONF: 1.0 #LIFT: 1.6666666666666667 #COUNT: 2
+2 3 ==> 1 5 #SUP: 0.4 #CONF: 0.6666666666666666 #LIFT: 1.6666666666666665 #COUNT: 2
+```
+
+Trên chess (3 196 giao dịch) với `--minsup 0.8`, ngưỡng là 2 557 giao dịch và chương trình tìm được 5 083 tập phổ
+biến đóng (thời gian khai thác 0,08 s); kết quả này khớp SPMF (`scripts/compare_spmf.jl data/benchmark/chess.txt 80%`).
+Thời gian cụ thể thay đổi theo máy.
 
 - `--minsup`: ngưỡng tương đối, viết `0.4` hoặc `40%` (như SPMF). Số giao dịch tối thiểu là
   `ceil(minsup × số giao dịch)`, làm tròn lên thuần, không dung sai. Quy ước này đã kiểm với SPMF
@@ -275,7 +354,17 @@ julia --project test/runtests.jl
 
 Các test so với SPMF dùng output đã lưu trong `test/fixtures/spmf/` nên không cần Java.
 
-Output lần chạy test cuối: TODO
+Output lần chạy test cuối (ngày 2026-11-28, Julia 1.13.4, Windows, commit `5eefe91`, khi `data/benchmark/` đã có
+đủ 9 dataset):
+
+```
+$ julia --project test/runtests.jl
+Test Summary: |  Pass  Total   Time
+FPClose       | 28266  28266  30.0s
+```
+
+28 266 là số lần thực thi lệnh `@test` mà `Test` của Julia thống kê; khi chưa tải dữ liệu benchmark, nhóm test trên
+`data/benchmark/` được đánh dấu bỏ qua.
 
 ## Định dạng input/output (SPMF)
 
@@ -316,7 +405,8 @@ efficient-apriori, ...). Thư viện nào dùng để làm gì được ghi chú
 
 ## Liên kết
 
-- Google Colab: TODO
+- Notebook demo (Google Colab): https://colab.research.google.com/github/DRAGON-1312/FPClose/blob/main/notebooks/demo.ipynb
+- Ứng dụng 1 (giỏ hàng), Colab: https://colab.research.google.com/github/DRAGON-1312/FPClose/blob/main/notebooks/application_01.ipynb
 - Dataset (Hugging Face): https://huggingface.co/datasets/hytrang/fpclose-fim-benchmarks (9 dataset benchmark đã chuẩn hóa; nguồn, SHA-256 và thống kê ở `data/README.md`)
 - Ứng dụng 2 (ảnh), Colab: https://colab.research.google.com/github/DRAGON-1312/FPClose/blob/main/notebooks/application_02.ipynb
 - Ứng dụng 2 (ảnh), dữ liệu trung gian (Hugging Face): https://huggingface.co/datasets/nnkhlh376/fpclose-app2-caltech

@@ -1,60 +1,206 @@
-% Chương 1: Cài đặt. KHUNG: các mục theo đề (https://hcmus-cs-ta.github.io/lab-book/data-mining/projects/itemset/),
-% thành viên phụ trách Chương 1 thay các \todo{...} bằng nội dung. Có thể tham khảo docs/DEVIATIONS.md, src/, test/.
-
 \section{\texorpdfstring{Cài đặt}{CHƯƠNG 1: CÀI ĐẶT}}
 \label{sec:implementation}
 
-\todo{Giới thiệu ngắn: bài toán khai thác tập phổ biến đóng, lý do chọn FPClose, ngôn ngữ Julia (phiên bản
-$\geq$ 1.9), cấu trúc chương.}
+Khai thác tập phổ biến là bước nền của khai thác luật kết hợp, nhưng số tập phổ biến tăng bùng nổ khi minsup giảm: trên
+mushrooms ở minsup 20\% đã có 53\,583 tập phổ biến, trong khi chỉ có 1\,197 tập phổ biến đóng. Có hai cách biểu diễn nén
+thường dùng là tập phổ biến tối đại (\textit{maximal itemset}: tập phổ biến không có tập cha nào phổ biến) và tập phổ
+biến đóng, với quan hệ tập tối đại $\subseteq$ tập đóng $\subseteq$ tập phổ biến. Tập tối đại gọn hơn nhưng làm mất
+thông tin: từ chúng chỉ biết được những tập nào phổ biến, không biết support của các tập đó, nên không tính được confidence của luật kết hợp. Ngược lại, tập đóng là biểu diễn nén \emph{không mất thông tin}: từ các tập
+đóng cùng support của chúng có thể suy ra mọi tập phổ biến và support tương ứng. Vì vậy, tập đóng phù hợp với các bài toán cần support chính xác của mọi tập phổ biến, tiêu biểu là sinh luật kết hợp. Trong các thuật toán khai thác tập đóng,
+nhóm chọn FPClose~\cite{grahne2005} vì thuật toán khai thác trực tiếp trên FP-tree mà không sinh ứng viên, kiểm tra tính
+đóng bằng một cấu trúc cây cục bộ thay vì so với toàn bộ các tập đã tìm, và có kỹ thuật FP-array giúp giảm số lần duyệt
+cây trên dữ liệu thưa. Thuật toán được cài đặt lại từ đầu bằng Julia 1.13.4; ngôn ngữ này biên dịch JIT theo kiểu cụ
+thể (\textit{concrete type}) nên cho hiệu năng gần ngôn ngữ biên dịch tĩnh, trong khi mã nguồn vẫn ngắn gọn và gần với
+mã giả. Mục~\ref{sec:algorithm} tóm tắt thuật toán theo bài báo gốc, các mục tiếp theo lần lượt trình bày cài đặt cơ
+bản, kiểm thử, tối ưu, giao diện dòng lệnh và những điểm khác với bài báo.
 
-% Đoạn định nghĩa chuyển từ Chương 2 sang; người viết Chương 1 giữ lại hoặc viết lại, nhưng các thuật ngữ này phải được
-% giải thích ở đây vì Chương 2 dùng mà không định nghĩa lại.
-\textit{Support} của một itemset là số giao dịch chứa nó, itemset là tập phổ biến (\textit{frequent itemset}) nếu
-support không nhỏ hơn ngưỡng minsup, và là tập phổ biến đóng (\textit{closed itemset}) nếu không có tập cha thực sự
-nào có cùng support~\cite{pasquier1999}. FPClose chỉ xuất các tập đóng, mọi tập phổ biến cùng support của chúng đều
-suy ra được từ tập đóng.
+\textit{Support} của một itemset $X$, ký hiệu $\sigma(X)$, là số giao dịch chứa $X$. Itemset $X$ là tập phổ biến
+(\textit{frequent itemset}) nếu $\sigma(X)$ không nhỏ hơn ngưỡng minsup, và là tập phổ biến đóng (\textit{closed
+itemset}) nếu không có tập cha thực sự nào có cùng support~\cite{pasquier1999}. FPClose chỉ xuất các tập đóng; support
+của mọi tập phổ biến $Y$ được suy ra bằng
+\begin{equation}
+  \sigma(Y) = \max\{\sigma(C) : C \text{ đóng},\ Y \subseteq C\}.
+  \label{eq:recovery}
+\end{equation}
 
 \subsection{Thuật toán FPClose}
 \label{sec:algorithm}
 
-% Đoạn giải thích thuật ngữ chuyển từ Mục 2.3 sang (Chương 2 dùng các thuật ngữ này mà không định nghĩa lại).
-% Người viết Chương 1 giữ lại hoặc viết lại trong phần trình bày thuật toán.
-FPClose~\cite{grahne2005} dựng FP-tree~\cite{han2000} (\textit{frequent-pattern tree}: cây tiền tố gộp các giao dịch
-có chung phần đầu, mỗi nút lưu một item và số giao dịch đi qua) bằng hai lần quét CSDL, rồi với mỗi item dựng cây điều
-kiện (\textit{conditional FP-tree}) từ \textit{pattern base} (tập các đường tiền tố dẫn tới item đó) và đệ quy. Một
-tập chỉ được ghi nhận khi không có tập đóng nào chứa nó với cùng support trong CFI-tree (\textit{closed frequent
-itemset tree}: cây tiền tố lưu các tập đóng đã tìm được).
-\todo{Tóm tắt thuật toán theo bài báo gốc~\cite{grahne2005}: FP-tree, cây điều kiện, CFI-tree, hàm
-\texttt{closed\_checking}, mã giả (Fig. 8 của bài báo) và ví dụ nhỏ.}
+\textbf{FP-tree và cây điều kiện.} FPClose~\cite{grahne2005} dựng FP-tree~\cite{han2000} (\textit{frequent-pattern
+tree}: cây tiền tố gộp các giao dịch có chung phần đầu, mỗi nút lưu một item và số giao dịch đi qua) bằng hai lần quét
+CSDL: lần thứ nhất đếm support của từng item, lần thứ hai chèn mỗi giao dịch, sau khi bỏ item không phổ biến và sắp xếp
+theo support giảm dần, vào cây. Bảng header của cây lưu các item theo cùng thứ tự, kèm danh sách liên kết
+(\textit{node-link}) nối mọi nút của cùng một item. Với một cây $T_X$ của itemset cơ sở $X$ và một item $i$ trong
+header, các đường đi từ những nút của $i$ lên gốc tạo thành \textit{pattern base} của $X \cup \{i\}$; cây dựng từ
+pattern base này là cây điều kiện (\textit{conditional FP-tree}) $T_{X \cup \{i\}}$, và thuật toán đệ quy trên cây đó.
+
+\textbf{CFI-tree và kiểm tra tính đóng.} Vì FPClose duyệt theo chiều sâu và xử lý các item trong header theo thứ tự
+support \emph{tăng dần}, một tập phổ biến mới tìm được chỉ có thể là tập con của một tập đóng đã tìm trước đó. Các tập
+đóng đã tìm được lưu trong CFI-tree (\textit{closed frequent itemset tree}), một biến thể của FP-tree. Mỗi CFI-tree
+$C_X$ gắn với một cây $T_X$, dùng cùng thứ tự item với header của $T_X$ và chỉ chứa các tập đóng đã tìm có chứa $X$.
+Mỗi nút có bốn trường: item, count, node-link và level (độ sâu của nút). Khi chèn một tập đóng, count của nút không được
+cộng dồn như FP-tree mà được thay bằng giá trị lớn nhất. Hàm \texttt{closed\_checking}$(Y, C)$ với
+$Y = \{i_1, \ldots, i_k\}$ có support $c$ đi theo node-link của $i_k$; với mỗi nút có count $\geq c$, hàm kiểm tra $Y$
+có là tập con của các tổ tiên của nút đó không, và dùng level để dừng sớm khi số tổ tiên còn lại ít hơn số item cần
+khớp. $Y$ không đóng khi tồn tại một tập đóng $Z \supset Y$ trong $C$ có cùng support.
+
+\textbf{Thuật toán.} Hình~\ref{fig:fpclose} là mã giả FPClose theo cài đặt
+của nhóm, dựa trên Fig.~8 của bài báo gốc. Nếu cây chỉ có một nhánh, các
+tập đóng ứng viên được đọc trực tiếp từ nhánh: tại mỗi vị trí support giảm,
+phần đầu nhánh ghép với $X$ tạo thành một ứng viên (dòng 1--3). Ngược lại,
+thuật toán xét lần lượt từng item $i$ trong header, từ item ít phổ biến nhất.
+Nhánh của $i$ chỉ sinh các tập dạng $Y \cup W$, với $Y = X \cup \{i\}$ và $W$ gồm các item xếp trước $i$ trong header.
+Giả sử đã có tập đóng $Z \supsetneq Y$ cùng support với $Y$. Khi đó mọi giao dịch chứa $Y$ đều chứa $Z$, nên
+$Y \cup W$ và $Y \cup W \cup Z$ có cùng support. Vì $Z$ được tìm trước, nó chứa ít nhất một item đã được xử lý ở bước
+trước và không thể thuộc $W$; do đó mọi $Y \cup W$ đều không đóng, và nhánh được cắt mà không mất kết quả (dòng 7).
+Lập luận này dựa vào thứ tự duyệt: nói chung, tập cha của một tập không đóng vẫn có thể đóng. Nếu không bị cắt, thuật
+toán dựng cây điều kiện $T_Y$ và CFI-tree $C_Y$ rồi đệ quy (dòng 8--9). Cuối
+mỗi lời gọi, $X$ được ghi nhận nếu chưa bị bao trùm (dòng 10). Mỗi tập đóng
+mới được thêm ngay vào các CFI-tree đang dùng (thủ tục Record), để các nhánh
+xét sau kiểm tra được.
+
+% Mã giả viết bằng tabular (template không nạp gói algorithm). \ii{n}: thụt n em, dòng bị ngắt cũng thụt theo.
+\begin{figure}[t]
+\centering
+\footnotesize
+\newcommand{\ii}[1]{\hangindent=\dimexpr#1em+1.5em\relax\hangafter=1\hspace*{#1em}}
+\begin{tabular}{@{}r@{\;\;}>{\raggedright\arraybackslash}p{\dimexpr\columnwidth-2.2em\relax}@{}}
+\multicolumn{2}{@{}>{\raggedright\arraybackslash}p{\columnwidth}@{}}{\textbf{Thủ tục} FPClose$(T, C)$ \quad
+$X$: tập cơ sở (tiền tố) gắn với $T$, $X = \varnothing$ ở lời gọi đầu; \ $T$: FP-tree có điều kiện của $X$; \
+$C$: CFI-tree của $X$}\\[2pt]
+1 & \ii{0}\textbf{if} $T$ chỉ có một nhánh \textbf{then}\\
+2 & \ii{1}\textbf{for} mỗi đoạn đầu nhánh $Z$ có support khác item kế tiếp \textbf{do}\\
+3 & \ii{2}\textbf{if} $X \cup Z$ chưa bị bao bởi tập đóng nào đã tìm thấy \textbf{then} Record$(X \cup Z)$\\
+4 & \ii{0}\textbf{else}\\
+5 & \ii{1}\textbf{for} mỗi item $i$ trong header của $T$, từ ít phổ biến nhất \textbf{do}\\
+6 & \ii{2}$Y \gets X \cup \{i\}$\\
+7 & \ii{2}\textbf{if} $Y$ đã bị bao bởi tập đóng cùng support \mbox{\textbf{then continue}}%
+\nobreak\hspace{0pt plus 1filll}\penalty50\hspace*{1em}\hbox{}\nobreak\hspace{0pt plus 1filll}%
+\mbox{$\triangleright$ cắt nhánh}\\
+8 & \ii{2}dựng $T_Y$ từ pattern base của $i$; \ $C_Y \gets$ các tập đóng trong $C$ chứa $i$\\
+9 & \ii{2}FPClose$(T_Y, C_Y)$\\
+10 & \ii{0}\textbf{if} $X$ chưa bị bao bởi tập đóng cùng support \textbf{then} Record$(X)$\\[3pt]
+\multicolumn{2}{@{}>{\raggedright\arraybackslash}p{\columnwidth}@{}}{\textbf{Thủ tục} Record$(Z)$: thêm $Z$ vào kết
+quả và vào các CFI-tree đang dùng (count các nút lấy max).}\\
+\end{tabular}
+\caption{Mã giả FPClose theo cài đặt của nhóm, dựa trên Fig.~8 của~\cite{grahne2005}. ``Bị bao'' nghĩa là CFI-tree đã
+chứa một tập đóng bao $Z$ với cùng support. Các tối ưu tùy chọn và điểm khác bài báo xem
+Mục~\ref{sec:optimizations} và~\ref{sec:deviations}.}
+\label{fig:fpclose}
+\end{figure}
+
+\textbf{Ví dụ.} Xét CSDL gồm năm giao dịch $\{a,b,c,e\}$, $\{a,d,e\}$, $\{a,d\}$, $\{a,c,d\}$, $\{b,c,e\}$ với minsup
+bằng 2 giao dịch. CSDL có 12 tập phổ biến nhưng chỉ 7 tập đóng: $a{:}4$, $c{:}3$, $e{:}3$, $ac{:}2$, $ad{:}3$, $ae{:}2$
+và $bce{:}2$, trong đó 4 tập là tối đại ($ac$, $ad$, $ae$, $bce$). Chẳng hạn $d$ không đóng vì mọi giao dịch chứa $d$ đều chứa $a$ ($\sigma(ad) = \sigma(d) = 3$), và theo
+\eqref{eq:recovery}, $\sigma(d) = \sigma(ad) = 3$. Với thứ tự header $a, c, d, e, b$, item $b$ được xử lý đầu tiên và
+cho tập đóng $bce{:}2$. Cây điều kiện của $e$ có hai nhánh, với header $a, c$; khi xét $c$ trước, tập $Y = ce$ có support
+2, \texttt{closed\_checking} tìm thấy $bce{:}2$ trong CFI-tree nên $Y$ đã bị bao và nhánh này bị cắt ở dòng~7 mà
+không cần dựng thêm cây điều kiện nào. Đây là lần cắt nhánh duy nhất trong cả lần chạy.
 
 \subsection{Cài đặt cơ bản}
 \label{sec:basic}
-\todo{Cấu trúc mã nguồn (\path{src/structures.jl}, \path{src/algorithm/}, \path{src/utils.jl}), các cấu trúc dữ liệu
-chính và cách dùng đặc trưng của Julia (multiple dispatch, kiểu cụ thể, \ldots). Kết quả phải khớp hoàn toàn SPMF.}
+\textbf{Biểu diễn cây và đặc trưng Julia.} Mỗi nút cây là một đối tượng lưu item, count, nút cha, các nút con (tra theo
+item) và node-link; nút CFI-tree có thêm level, và count của nó là giá trị lớn nhất của các tập đóng đi qua nút. Mọi
+trường dữ liệu đều có kiểu cụ thể, nên trình biên dịch JIT sinh được mã chuyên biệt mà không phải kiểm tra kiểu khi
+chạy. \textit{Multiple dispatch} cho phép FP-tree và CFI-tree dùng chung các thao tác như tạo nút con và duyệt
+node-link. Các tối ưu ở Mục~\ref{sec:optimizations} được bật/tắt bằng tham số từ khóa, nên cùng một mã nguồn chạy được
+cả bản cơ bản lẫn bản tối ưu.
+
+\textbf{Khôi phục mọi tập phổ biến và sinh luật kết hợp.} Phần này không có trong bài báo; nhóm bổ sung vì luật kết
+hợp cần support của mọi tập phổ biến, trong khi FPClose chỉ xuất tập đóng. Các tập đóng được xét theo support giảm
+dần, và mỗi tập con chưa có support được gán support của tập đóng đang xét mà không bị ghi đè về sau, nên nhận đúng giá
+trị lớn nhất trong \eqref{eq:recovery}. Từ mỗi tập phổ biến $Z$, luật $A \rightarrow B$ được sinh bằng cách tách
+$Z = A \cup B$ với $A$, $B$ khác rỗng và rời nhau, và được giữ khi confidence đạt minconf, trong đó
+\begin{equation}
+  \mathrm{conf}(A \rightarrow B) = \frac{\sigma(A \cup B)}{\sigma(A)},\qquad
+  \mathrm{lift}(A \rightarrow B) = \frac{\mathrm{conf}(A \rightarrow B)}{\sigma(B)/N},
+\end{equation}
+với $N$ là số giao dịch; support của luật là $\sigma(A \cup B)/N$. Các luật được xếp theo lift giảm dần, rồi theo
+confidence và support; Chương~3 dùng bước này cho ứng dụng phân tích giỏ hàng.
 
 \subsection{Kiểm thử tự động}
 \label{sec:tests}
-\todo{Bộ unit test (\path{test/runtests.jl}): các nhóm test, so với vét cạn và với output SPMF trên ít nhất 5 CSDL
-(\path{test/fixtures/spmf/}), tỉ lệ đúng, số test pass ở lần chạy cuối.}
+
+Bộ kiểm thử \path{test/runtests.jl} kiểm tra năm nhóm tính chất: kết quả khớp từng itemset và support với output của
+SPMF đã lưu sẵn trên sáu CSDL nhỏ, mỗi CSDL ở 2--4 mức minsup, cho cả tập đóng lẫn mọi tập phổ biến (nên không cần Java
+khi chạy test); kết quả khớp đáp án vét cạn trên các CSDL sinh ngẫu nhiên với seed cố định; mọi tổ hợp bật/tắt tối ưu
+cho cùng một kết quả; bước khôi phục cho đúng mọi tập phổ biến; và bước sinh luật cho đúng các độ đo và thứ tự xếp
+hạng. Bộ test cũng có một kiểm thử hồi quy cho lỗi gặp trong quá trình phát triển: mã của item 0 trùng với mã của nút
+gốc FP-tree làm mất các itemset chứa item 0. Ở lần chạy cuối, cả 28\,266/28\,266 phép kiểm tra đều đạt; đây là số lần thực thi lệnh \texttt{@test} mà
+\texttt{Test} của Julia thống kê, không phải số ca kiểm thử độc lập. Trên sáu CSDL nhỏ đối chiếu với SPMF, cả 36/36 cấu hình (CSDL $\times$ minsup $\times$ chế độ)
+khớp hoàn toàn, tỉ lệ đúng 100\% (1\,183/1\,183 lượt đối chiếu itemset).
 
 \subsection{Tối ưu hóa bộ nhớ và tốc độ}
 \label{sec:optimizations}
-\todo{Mô tả các tối ưu (cắt nhánh dòng 8, FP-array, kết thúc sớm, so count chính xác, CFI-tree rút gọn) và lý do,
-mức cải thiện đo được so với bản cơ bản (số liệu ở mục~\ref{sec:memory}, Bảng~\ref{tab:ablation}).}
+
+Trừ cắt nhánh (dòng~7), các tối ưu dưới đây không xuất hiện trong Hình~\ref{fig:fpclose}. Cả năm tối ưu bật/tắt được
+độc lập, đều bật theo mặc định, và chỉ thay đổi cách thực hiện một số bước chứ không làm đổi kết quả.
+\begin{itemize}
+  \item \textbf{Cắt nhánh:} bỏ qua item $i$ khi $X \cup \{i\}$ đã bị bao, vì theo thứ tự duyệt, mọi tập nhánh này có
+  thể sinh ra đều không đóng (Mục~\ref{sec:algorithm}). Nếu tắt, nhánh vẫn được đệ quy nhưng các tập tìm được trong đó
+  đều bị loại khi kiểm tra tính đóng.
+  \item \textbf{FP-array}~\cite{grahne2005}: khi dựng một cây, đếm thêm support của từng cặp item vào một
+ma trận tam giác để cây điều kiện ở tầng sau lấy ngay danh sách item phổ biến mà không phải duyệt cây
+thêm một lần. Theo heuristic của bài báo, nếu cây cha dày (một phần tư phía trên chứa dưới 15\% số nút)
+thì không tính ma trận cho cây con (riêng cây gốc bỏ ma trận khi chính nó dày); hàng của 15 item đầu
+header cũng không được tính. Ma trận chỉ thay một lần đếm bằng một lần tra cứu, nên kết quả không đổi.
+
+\item \textbf{Kết thúc sớm}~\cite{grahne2005}: gọi $i_1,\dots,i_{m_0}$ là các item đầu header có support
+trong cây bằng $\sigma(X)$. Khi vòng lặp ở dòng 5 đến item $i_m$ ($m \le m_0$) mà
+$X \cup \{i_1,\dots,i_m\}$ đã bị một tập đóng cùng support bao, vòng lặp dừng ngay. Mọi item còn lại
+đều sẽ bị cắt nhánh, nên kết quả không đổi.
+
+\item \textbf{So count chính xác}: \texttt{closed\_checking} chỉ xét nút CFI-tree có count đúng bằng
+support $c$ của tập $Y$ cần kiểm tra, thay cho count $\ge c$ như bài báo. Count của nút là support lớn
+nhất của các tập đóng đi qua nút; nếu đường từ gốc tới nút chứa $Y$ thì các tập đó đều là tập cha của
+$Y$, nên count không vượt $c$ và bộ lọc chặt hơn không bỏ sót nút khớp. Tuy nhiên, các truy vấn phát
+sinh trong FPClose không gặp nút có count lớn hơn $c$, nên thay đổi này không làm giảm số phép kiểm tra
+tập con trong thực tế.
+  \item \textbf{CFI-tree rút gọn:} theo Fig.~9 của~\cite{grahne2005}, khi đang đệ quy xuống $X \cup \{i\}$, các tập
+  đóng mới chèn vào $C_X$ được bỏ item $i$, nên CFI-tree nhỏ hơn. Phần còn lại của lời gọi trên $T_X$ chỉ xét các item
+  đứng trước $i$ nên không bao giờ hỏi tới $i$.
+\end{itemize}
+Ngoài ra, thứ hạng của item trong header được lưu ngay trong nút cây để giảm tra cứu trong vòng lặp khai thác.
+
+Tại minsup giữa lưới, so với bản cơ bản (tắt cả năm kỹ thuật), bản tối ưu giảm thời gian khai thác
+khoảng 31\% trên mushrooms, 17\% trên chess, 15\% trên T40I10D100K và 10\% trên kosarak; năm CSDL còn
+lại chênh lệch dưới 10\%. RAM tối đa ít thay đổi (Mục~\ref{sec:memory}, Bảng~\ref{tab:ablation}).
 
 \subsection{Xử lý đầu vào, đầu ra và tham số dòng lệnh}
 \label{sec:io}
-\todo{Đọc file định dạng SPMF, ghi kết quả cùng định dạng, tham số \texttt{--minsup}, \texttt{--minsup-count},
-đường dẫn file (\path{demo.jl}), quy ước làm tròn minsup.}
+
+Đầu vào là file \texttt{.txt} định dạng SPMF: mỗi dòng một giao dịch, gồm các item là số nguyên không âm
+cách nhau bởi dấu cách. Bộ đọc đọc cả file một lần theo byte và phân tích số nguyên mà không tạo chuỗi
+trung gian. Đầu ra dùng cùng định dạng, ví dụ \texttt{1 2 3 \#SUP: 4} là itemset $\{1,2,3\}$ có support 4.
+Chương trình \path{demo.jl} nhận đường dẫn file và ngưỡng qua \texttt{--minsup} (tỉ lệ hoặc phần trăm)
+hoặc \texttt{--minsup-count} (số giao dịch). Ngưỡng tương đối được đổi thành số giao dịch bằng
+$\max(1, \lceil n \cdot \mathrm{minsup} \rceil)$, với $n$ là số giao dịch, tính trên số thực dấu phẩy
+động như SPMF. Ví dụ, CSDL \path{data/toy/pasquier99.txt} có 5 giao dịch; lệnh
+\begin{center}
+\small\texttt{julia --project=. demo.jl --minsup 40\% data/toy/pasquier99.txt}
+\end{center}
+dùng ngưỡng $\lceil 5 \cdot 0{,}4 \rceil = 2$ giao dịch, giống \texttt{--minsup 0.4} hay \texttt{--minsup-count 2}.
 
 \subsection{Những điểm khác với bài báo gốc}
 \label{sec:deviations}
-\todo{Tóm tắt các điểm bổ sung hoặc khác bài báo và ảnh hưởng tới kết quả (\path{docs/DEVIATIONS.md}).}
 
-% Đoạn chuyển từ Mục 2.2 sang (Chương 2 dẫn chiếu tới mục này). Người viết Chương 1 giữ lại hoặc viết lại.
-Trong quá trình kiểm thử, nhóm phát hiện trường hợp mã item 0 trùng với mã định danh của nút gốc FP-tree, dẫn đến mất
-các itemset chứa item này. Lỗi được khắc phục bằng cách dành riêng mã $-1$ cho nút gốc và bổ sung kiểm thử hồi quy
-(\textit{regression test}) trên CSDL chứa item 0. Lỗi này không ảnh hưởng đến các benchmark đã chuẩn hóa vì toàn bộ
-item trong các CSDL này đều có mã nguyên dương. Khi chuyển mã giả thành chương trình, nhóm làm rõ ba chi tiết triển
-khai: cây một nhánh phải liệt kê cả tiền tố đầy đủ, ghi nhận chính tập cơ sở $X$ ở cuối mỗi lời gọi, và thứ tự duyệt
-header. Cả ba được kiểm tra bằng phép so với SPMF ở Mục~\ref{sec:correctness}.
+Các điểm khác với Fig.~8 của bài báo (số dòng là của Hình~\ref{fig:fpclose}; chi tiết trong \path{docs/DEVIATIONS.md}):
+\begin{itemize}
+  \item \textbf{Chiều trả về của \texttt{closed\_checking}.} Fig.~8 (dòng 4 và 8) dùng \textbf{not}
+  \texttt{closed\_checking} trước khi chèn hay đệ quy, tức true là ``đã bị bao'', còn câu mô tả hàm ở Sec.~4.1 nêu chiều
+  ngược lại; nhóm theo mã giả. Không đổi kết quả.
+  \item \textbf{Nhánh đơn (dòng~2).} Mô tả nhánh đơn ở Sec.~4.1 chỉ xét các cặp liền kề $c_j \neq c_{j+1}$, nên nếu đọc
+  đúng chữ thì nhánh đầy đủ $i_1, \ldots, i_p$ không được liệt kê; cài đặt thêm trường hợp $j = p$, thiếu thì mất tập đóng.
+  \item \textbf{Ghi nhận $X$ (dòng~10).} Trong Fig.~8, tập đóng chỉ được chèn ở nhánh đơn (dòng 3--5), nên theo đúng mã
+  giả, $X$ không được ghi khi cây có nhiều nhánh; cài đặt bổ sung bước này, bỏ đi thì sai 10\,559/13\,741 ca so với vét cạn.
+  \item \textbf{Thứ tự header (dòng~5).} Fig.~8 (dòng 6) không nêu thứ tự; nhóm duyệt từ item ít phổ biến nhất theo
+  Sec.~3.2 (mô tả cho FPmax*), điều kiện để lập luận cắt nhánh ở Mục~\ref{sec:algorithm} đúng.
+  \item \textbf{Dòng 17 của Fig.~8.} Thay bằng Record, chèn ngay vào mọi CFI-tree đang dùng. Không đổi kết quả.
+  \item \textbf{Lưu tập đóng trong $C_X$.} Chỉ lưu phần thuộc header của $T_X$; $C_Y$ dựng lại từ $C_X$. Không đổi kết
+  quả.
+  \item \textbf{Phá hòa trong header.} Cùng count thì item có mã nhỏ hơn đứng trước; chỉ đổi hình dạng cây.
+  \item \textbf{Bổ sung nhỏ.} Không xuất tập rỗng (giống SPMF), bỏ item trùng trong giao dịch, làm tròn minsup như
+  Mục~\ref{sec:io}.
+  \item \textbf{Các tối ưu} (kết thúc sớm, so count chính xác, CFI-tree rút gọn, FP-array): xem
+  Mục~\ref{sec:optimizations}.
+\end{itemize}

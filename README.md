@@ -306,32 +306,12 @@ Kết quả (đã kiểm bằng `demo.jl` và bằng test `Ví dụ chính thứ
 
 ## Ứng dụng (Chương 3) và thư viện Python
 
-Theo hướng dẫn của giảng viên, phần ứng dụng được viết bằng Python và được dùng thư viện hỗ trợ. **Mọi itemset và
-luật kết hợp đều do FPClose của nhóm sinh ra** (`demo.jl` hoặc các hàm trong `src/`); không dùng mlxtend,
-efficient-apriori, SPMF hay thư viện khai thác tập phổ biến (FIM) nào khác. Mỗi notebook có ghi chú thư viện nào
-dùng để làm gì.
+Phần ứng dụng viết bằng Python và dùng thư viện hỗ trợ theo hướng dẫn của giảng viên, nhưng **mọi itemset và luật
+kết hợp đều do FPClose của nhóm sinh ra**; không dùng thư viện khai thác tập phổ biến (FIM) nào (mlxtend,
+efficient-apriori, ...). Thư viện nào dùng để làm gì được ghi chú ở:
 
-| | Ứng dụng 1: giỏ hàng (UCI Online Retail) | Ứng dụng 2: mẫu trực quan trên ảnh (Caltech-101) |
-|---|---|---|
-| Notebook | `notebooks/application_01.ipynb` | `notebooks/application_02.ipynb` (ô "Thư viện sử dụng") |
-| Code, hướng dẫn | `applications/application_01/` | `applications/app2_image/` (phiên bản ghim trong `requirements.txt`) |
-
-**Ứng dụng 1:** `pandas`, `openpyxl`, `matplotlib`, chỉ dùng để đọc dữ liệu, biến đổi thành giao dịch và trình bày
-kết quả (chi tiết ở `applications/application_01/README.md`).
-
-**Ứng dụng 2:**
-
-| Thư viện | Dùng để làm gì |
-|---|---|
-| OpenCV | Đọc ảnh, chuyển xám, resize; trích đặc trưng SIFT |
-| NumPy | Mảng descriptor, tọa độ keypoint, histogram |
-| scikit-learn | Chia train/test theo lớp; k-means (`MiniBatchKMeans`) tạo codebook từ thị giác; chọn τ bằng accuracy CV; chuẩn hóa (`StandardScaler`) và phân loại (`LogisticRegression`), accuracy, macro-F1, confusion matrix; ARI ở ô kiểm chứng k-means |
-| pandas | Danh sách ảnh, bảng thống kê, bảng mẫu và growth rate |
-| Matplotlib | Vẽ keypoint của mẫu lên ảnh; kiểm tra keypoint nằm trong đường viền vật thể |
-| SciPy | Đọc file đường viền vật thể `.mat` của Caltech-101 |
-
-Khai thác tập phổ biến đóng ở Ứng dụng 2 dùng `demo.jl` của nhóm (gọi qua `subprocess`); file giao dịch theo định
-dạng SPMF chỉ là định dạng dữ liệu, không chạy SPMF.
+- Ứng dụng 1 (giỏ hàng): `notebooks/application_01.ipynb` và `applications/application_01/README.md`.
+- Ứng dụng 2 (ảnh): ô "Thư viện sử dụng" trong `notebooks/application_02.ipynb`.
 
 ## Liên kết
 
